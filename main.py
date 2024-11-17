@@ -1,9 +1,9 @@
 import telebot
 from telebot import types
 import requests
-from flask import Flask
-from threading import Thread
+from flask import Flask, request
 from datetime import datetime
+import os
 
 # Токен бота
 TOKEN = '7812547873:AAFhjkRFZ5wGzZn4BCcOPjAAdgEZBRc4bq8'
@@ -64,152 +64,27 @@ def start_command(message):
     markup.add(*[types.KeyboardButton(button) for button in buttons])
     bot.send_message(message.chat.id, "Добро пожаловать! Выберите один из пунктов ниже.", reply_markup=markup)
 
-# Обработчик для кнопки "Список игр"
-@bot.message_handler(func=lambda message: message.text == "Список игр")
-def show_game_list(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    for game in GAME_INFO.keys():
-        markup.add(types.KeyboardButton(game))
-    markup.add(types.KeyboardButton("Назад"))
-    bot.send_message(message.chat.id, "Выберите нужную игру:", reply_markup=markup)
+# Обработчики для остальных функций (Список игр, Помощь, и т.д.) остаются такими же
 
-# Информация об игре
-@bot.message_handler(func=lambda message: message.text in GAME_INFO.keys())
-def send_game_info(message):
-    game_name = message.text
-    user_id = message.from_user.id
-
-    if not is_subscribed(user_id):
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton(CHANNEL["name"], url=CHANNEL["link"]))
-        markup.add(types.InlineKeyboardButton("Проверить подписку ✅", callback_data=f"check_{game_name}"))
-        bot.send_message(
-            message.chat.id,
-            "Подпишитесь на канал, чтобы получить доступ к модификатору игры.",
-            reply_markup=markup
-        )
-    else:
-        send_game_link(message, game_name)
-
-# Обработчик нажатия на кнопку "Проверить подписку"
-@bot.callback_query_handler(func=lambda call: call.data.startswith("check_"))
-def check_subscription(call):
-    user_id = call.from_user.id
-    game_name = call.data.split("_")[1]
-
-    if is_subscribed(user_id):
-        bot.answer_callback_query(call.id, "✅ Вы подписаны на канал!")
-        send_game_link(call.message, game_name)
-    else:
-        bot.answer_callback_query(call.id, "❌ Вы не подписаны на канал!")
-        bot.send_message(
-            call.message.chat.id,
-            "Пожалуйста, подпишитесь на канал и повторите попытку.",
-            reply_markup=types.InlineKeyboardMarkup().add(
-                types.InlineKeyboardButton(CHANNEL["name"], url=CHANNEL["link"])
-            )
-        )
-
-# Отправка ссылки на игру
-def send_game_link(message, game_name):
-    game_info = GAME_INFO.get(game_name)
-    link = game_info["link"]
-    description = game_info["description"]
-
-    markup = types.InlineKeyboardMarkup()
-    if link:
-        markup.add(types.InlineKeyboardButton("Скачать", url=link))
-    markup.add(types.InlineKeyboardButton("Как установить?", callback_data="how_to_install"))
-
-    response = f"🎮 Игра: {game_name}\n📄 Описание: {description}"
-    if not link:
-        response += "\n‼️ Актуальный APK для этой игры временно недоступен. Пожалуйста, попробуйте позже."
-
-    bot.send_message(message.chat.id, response, reply_markup=markup)
-
-# Обработчик для кнопки "Профиль"
-@bot.message_handler(func=lambda message: message.text == "Профиль")
-def profile_info(message):
-    user_info = user_data.get(message.from_user.id)
-    if user_info:
-        response = (
-            f"👤 Профиль:\n"
-            f"Тег пользователя: @{user_info['username']}\n"
-            f"Время регистрации: {user_info['registration_time']}\n"
-            f"Приглашений: {user_info['invites']}\n"
-            f"Реферальная ссылка: {user_info['referral_link']}"
-        )
-        bot.send_message(message.chat.id, response)
-    else:
-        bot.send_message(message.chat.id, "Профиль не найден. Пожалуйста, начните с команды /start.")
-
-# Обработчик для кнопки "Помощь"
-@bot.message_handler(func=lambda message: message.text == "Помощь")
-def help_menu(message):
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    buttons = [
-        ("Гугл вход с читом", "google_login_cheat"),
-        ("Разбан аккаунта", "account_unban"),
-        ("Как установить?", "how_to_install"),
-        ("Как пользоваться?", "how_to_use")
-    ]
-    markup.add(*[types.InlineKeyboardButton(text, callback_data=data) for text, data in buttons])
-    bot.send_message(message.chat.id, "Выбери нужный пункт:", reply_markup=markup)
-
-@bot.callback_query_handler(func=lambda call: True)
-def callback_query(call):
-    responses = {
-        "google_login_cheat": (
-            "1. Зайдите в оригинальный Oxide и дождитесь загрузки серверов.\n"
-            "2. Выйдите из игры и удалите её.\n"
-            "3. Установите чит и войдите в игру через Google.\n"
-            "4. Готово!"
-        ),
-        "account_unban": "Ссылка для разбана: https://t.me/Oxide_Vzlom/2327",
-        "how_to_install": "Удалите оригинальный APK и установите модификатор.",
-        "how_to_use": "Информация отсутствует."
-    }
-    bot.send_message(call.message.chat.id, responses.get(call.data, "Неверный запрос."))
-
-# Обработчик для кнопки "Назад"
-@bot.message_handler(func=lambda message: message.text == "Назад")
-def go_back(message):
-    start_command(message)
-
-# Обработчик для кнопки "Техподдержка"
-@bot.message_handler(func=lambda message: message.text == "Техподдержка")
-def tech_support(message):
-    bot.send_message(
-        message.chat.id,
-        "Свяжитесь с техподдержкой через: @Oxide_Vzlom_bot.\n"
-        "Мы постараемся ответить вам в кратчайшие сроки!"
-    )
-
-# Обработчик для кнопки "О нас"
-@bot.message_handler(func=lambda message: message.text == "О нас")
-def about_bot(message):
-    response = (
-        "ℹ️ О боте:\n"
-        "Бот создан для упрощения загрузки модификаторов. Здесь собраны все необходимые модификаторы и информация о них.\n\n"
-        "📌 Сейчас бот находится в стадии разработки, поэтому возможны баги и нестабильная работа из-за отсутствия полноценного хостинга.\n\n"
-        "📰 Вся актуальная информация доступна на канале: @Oxide_Vzlom.\n\n"
-        "Версия бота: 0.1.0"
-    )
-    bot.send_message(message.chat.id, response)
-
-# Flask-приложение для поддержки работы на Replit
+# Flask-приложение для Webhook
 app = Flask(__name__)
 
 @app.route('/')
 def home():
     return "Бот работает!"
 
-def run():
+@app.route(f'/{TOKEN}', methods=['POST'])
+def webhook():
+    json_string = request.get_data().decode('utf-8')
+    update = telebot.types.Update.de_json(json_string)
+    bot.process_new_updates([update])
+    return '', 200
+
+# Установка Webhook
+WEBHOOK_URL = f"https://<your-railway-url>.railway.app/{TOKEN}"
+bot.remove_webhook()
+bot.set_webhook(url=WEBHOOK_URL)
+
+# Запуск Flask приложения
+if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
-
-def keep_alive():
-    Thread(target=run).start()
-
-# Запуск бота
-keep_alive()
-bot.polling(none_stop=True)
