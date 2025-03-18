@@ -9,8 +9,8 @@ CHANNEL_USERNAME = "@Oxide_Vzlom"
 def send_closed_message(message):
     bot.send_message(
         message.chat.id,
-        f"Бот временно закрыт.\n\n"
-        f"Ожидайте новой информации в канале: {CHANNEL_USERNAME}"
+        f"**Бот временно закрыт.**\n\n"
+        f"**Следите за новостями в канале: {CHANNEL_USERNAME}**"
     )
 
 if __name__ == '__main__':
