@@ -28,7 +28,7 @@ def is_subscribed(user_id):
 # Ловим /start
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    print(f"Команда /start от {message.from_user.id}")  # Логируем команду
+    print(f"Команда /start от {message.from_user.id}")  
     user_id = message.from_user.id
 
     if is_subscribed(user_id):
@@ -68,6 +68,26 @@ def check_subscription(call):
         )
     else:
         bot.answer_callback_query(call.id, "❌ Вы ещё не подписаны на все каналы!")
+
+# Обработка неверных команд
+@bot.message_handler(func=lambda message: True)
+def handle_unknown_command(message):
+    user_id = message.from_user.id
+
+    if not is_subscribed(user_id):  # Если пользователь не подписан
+        markup = types.InlineKeyboardMarkup(row_width=3)
+        buttons = [types.InlineKeyboardButton(name, url=link) for name, link in {**NO_CHECK_CHANNEL, **REQUIRED_CHANNELS}.items()]
+        markup.add(*buttons)
+        markup.add(types.InlineKeyboardButton("✅ Проверить подписку", callback_data="check_subscription"))
+
+        bot.send_message(
+            message.chat.id,
+            "⚠ *Вы не подписаны на все каналы!* Подпишитесь и нажмите \"✅ Проверить подписку\".",
+            parse_mode="Markdown",
+            reply_markup=markup
+        )
+    else:
+        bot.send_message(message.chat.id, "🤖 *Я вас не понял!* Используйте команду /start, чтобы начать.", parse_mode="Markdown")
 
 if __name__ == "__main__":
     print("Бот запущен! Ожидаем команды...")
