@@ -12,7 +12,7 @@ REQUIRED_CHANNELS = {
     "2 канал": "https://t.me/ChatByOxide",
     "3 канал": "https://t.me/Oxide_Vzlom"
 }
-DOWNLOAD_CHANNEL_LINK = "https://t.me/+dxcSK08NRmxjNWRi"
+DOWNLOAD_CHANNEL_LINK = "https://t.me/+gQzXZwSO5cliNGJi"  # Обновленная конечная ссылка
 
 # Проверка подписки
 def is_subscribed(user_id):
