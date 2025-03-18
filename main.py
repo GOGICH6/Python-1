@@ -8,14 +8,17 @@ bot = telebot.TeleBot(TOKEN)
 
 # Канал без проверки (должен идти первым)
 NO_CHECK_CHANNEL = {
-    "🔥 Приватный канал": "https://t.me/+i54KtE7dZ9I1NTJi"
+    "1 канал": "https://t.me/+i54KtE7dZ9I1NTJi"
 }
 
 # Каналы для проверки подписки
 REQUIRED_CHANNELS = {
-    "Chat By Oxide": "https://t.me/ChatByOxide",
-    "Oxide Vzlom": "https://t.me/Oxide_Vzlom"
+    "2 канал": "https://t.me/ChatByOxide",
+    "3 канал": "https://t.me/Oxide_Vzlom"
 }
+
+# Канал, который бот выдаёт после успешной подписки
+DOWNLOAD_CHANNEL_LINK = "https://t.me/+dxcSK08NRmxjNWRi"
 
 # Проверка подписки пользователя
 def is_subscribed(user_id):
@@ -36,16 +39,21 @@ def send_welcome(message):
     user_id = message.from_user.id
 
     if is_subscribed(user_id):
-        bot.send_message(message.chat.id, f"✅ Спасибо за подписку! Вот ваша ссылка на закрытый канал:\n{NO_CHECK_CHANNEL['🔥 Приватный канал']}")
+        bot.send_message(
+            message.chat.id, 
+            f"✅ **Вы успешно подписались на все каналы и прошли регистрацию!**\n\n"
+            f"🔗 **Ссылка на скачивание:** [👉 Нажмите здесь]({DOWNLOAD_CHANNEL_LINK})\n\n"
+            f"⚠ **Важно!** _Не отписывайтесь от каналов_, иначе бот может посчитать вас мошенником и **добавить в ЧС во всех каналах!_",
+            parse_mode="Markdown"
+        )
     else:
         markup = types.InlineKeyboardMarkup(row_width=3)
 
-        # Сначала добавляем канал без проверки
-        for name, link in NO_CHECK_CHANNEL.items():
-            markup.add(types.InlineKeyboardButton(name, url=link))
-
-        # Затем каналы с проверкой
-        buttons = [types.InlineKeyboardButton(name, url=link) for name, link in REQUIRED_CHANNELS.items()]
+        # Добавляем каналы в один ряд
+        buttons = []
+        buttons.append(types.InlineKeyboardButton("1 канал", url=NO_CHECK_CHANNEL["1 канал"]))
+        for name, link in REQUIRED_CHANNELS.items():
+            buttons.append(types.InlineKeyboardButton(name, url=link))
         markup.add(*buttons)
 
         # Кнопка "Проверить подписку"
@@ -54,7 +62,8 @@ def send_welcome(message):
 
         bot.send_message(
             message.chat.id,
-            "📢 Чтобы получить доступ к моду, подпишитесь на каналы ниже.\nПосле подписки нажмите \"✅ Проверить подписку\".",
+            "📢 **Чтобы получить доступ к моду, подпишитесь на каналы ниже.**\nПосле подписки нажмите **\"✅ Проверить подписку\".**",
+            parse_mode="Markdown",
             reply_markup=markup
         )
 
@@ -64,7 +73,13 @@ def check_subscription(call):
     user_id = call.from_user.id
 
     if is_subscribed(user_id):
-        bot.send_message(call.message.chat.id, f"✅ Спасибо за подписку! Вот ваша ссылка на закрытый канал:\n{NO_CHECK_CHANNEL['🔥 Приватный канал']}")
+        bot.send_message(
+            call.message.chat.id, 
+            f"✅ **Вы успешно подписались на все каналы и прошли регистрацию!**\n\n"
+            f"🔗 **Ссылка на скачивание:** [👉 Нажмите здесь]({DOWNLOAD_CHANNEL_LINK})\n\n"
+            f"⚠ **Важно!** _Не отписывайтесь от каналов_, иначе бот может посчитать вас мошенником и **добавить в ЧС во всех каналах!_",
+            parse_mode="Markdown"
+        )
     else:
         bot.answer_callback_query(call.id, "❌ Вы ещё не подписаны на все каналы!")
 
