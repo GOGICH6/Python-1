@@ -26,8 +26,11 @@ def is_subscribed(user_id):
     return True  
 
 # Ловим /start (только в личных сообщениях)
-@bot.message_handler(commands=['start'], chat_types=['private'])
+@bot.message_handler(commands=['start'])
 def send_welcome(message):
+    if message.chat.type != "private":  
+        return  
+
     print(f"Команда /start от {message.from_user.id}")  
     user_id = message.from_user.id
 
@@ -52,10 +55,9 @@ def send_welcome(message):
             reply_markup=markup
         )
 
-# Проверка подписки
+# Проверка подписки (отправляет сообщение в чат, а не всплывающее уведомление)
 @bot.callback_query_handler(func=lambda call: call.data == "check_subscription")
 def check_subscription(call):
-    print(f"Проверка подписки для {call.from_user.id}")  
     user_id = call.from_user.id
 
     if is_subscribed(user_id):
@@ -67,7 +69,11 @@ def check_subscription(call):
             parse_mode="Markdown"
         )
     else:
-        bot.answer_callback_query(call.id, "❌ Вы ещё не подписаны на все каналы!")
+        bot.send_message(
+            call.message.chat.id,
+            "❌ *Вы ещё не подписаны на все каналы!* Подпишитесь и нажмите \"✅ Проверить подписку\" снова.",
+            parse_mode="Markdown"
+        )
 
 # Обработка неверных команд (только в ЛС)
 @bot.message_handler(func=lambda message: message.chat.type == "private")
@@ -77,7 +83,11 @@ def handle_unknown_command(message):
     if is_subscribed(user_id):  # Если подписан, но отправил неизвестную команду
         bot.send_message(message.chat.id, "🤖 *Я вас не понял!* Используйте команду /start, чтобы начать.", parse_mode="Markdown")
     else:
-        pass  # Пропускаем сообщение без ответа
+        bot.send_message(
+            message.chat.id,
+            "⚠ *Вы не подписаны на все каналы!* Подпишитесь и нажмите \"✅ Проверить подписку\" снова.",
+            parse_mode="Markdown"
+        )
 
 if __name__ == "__main__":
     print("Бот запущен! Ожидаем команды...")
