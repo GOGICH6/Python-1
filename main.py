@@ -1,15 +1,13 @@
 import telebot
 from telebot import types
 import requests
-from flask import Flask, request
 from datetime import datetime
-import os
 
-# Токен бота
+# Токен твоего бота
 TOKEN = '7812547873:AAFhjkRFZ5wGzZn4BCcOPjAAdgEZBRc4bq8'
 bot = telebot.TeleBot(TOKEN)
 
-# Информация о всех играх и ссылки для скачивания
+# Информация об играх
 GAME_INFO = {
     "Oxide Survival Island": {
         "link": "https://t.me/+X5HG9ZCxbhc4OTIy",
@@ -30,24 +28,25 @@ GAME_INFO = {
 }
 
 # Канал для проверки подписки
-CHANNEL = {
-    "name": "Oxide Vzlom",
-    "link": "https://t.me/Oxide_Vzlom",
-    "username": "@Oxide_Vzlom"
-}
+CHANNEL = "@Oxide_Vzlom"
 
-# Временное хранилище данных пользователей
+# Данные пользователей (временное хранилище)
 user_data = {}
 
-# Проверка подписки на канал
+# Проверка подписки
 def is_subscribed(user_id):
-    url = f"https://api.telegram.org/bot{TOKEN}/getChatMember?chat_id={CHANNEL['username']}&user_id={user_id}"
+    url = f"https://api.telegram.org/bot{TOKEN}/getChatMember?chat_id={CHANNEL}&user_id={user_id}"
     response = requests.get(url).json()
-    if response.get('result', {}).get('status') in ['member', 'administrator', 'creator']:
-        return True
-    return False
+    return response.get('result', {}).get('status') in ['member', 'administrator', 'creator']
 
-# Приветственное сообщение и основное меню
+# Главное меню
+def main_menu():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    buttons = ["Список игр", "Профиль", "Помощь", "Техподдержка", "О нас"]
+    markup.add(*buttons)
+    return markup
+
+# Стартовое сообщение
 @bot.message_handler(commands=['start'])
 def start_command(message):
     user_id = message.from_user.id
@@ -55,36 +54,66 @@ def start_command(message):
         user_data[user_id] = {
             "username": message.from_user.username,
             "registration_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "invites": 0,
             "referral_link": f"https://t.me/{bot.get_me().username}?start={user_id}"
         }
+    bot.send_message(
+        message.chat.id,
+        "Добро пожаловать! Выберите пункт меню:",
+        reply_markup=main_menu()
+    )
 
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    buttons = ["Список игр", "Профиль", "Помощь", "Техподдержка", "О нас"]
-    markup.add(*[types.KeyboardButton(button) for button in buttons])
-    bot.send_message(message.chat.id, "Добро пожаловать! Выберите один из пунктов ниже.", reply_markup=markup)
+# Обработка текстовых сообщений
+@bot.message_handler(content_types=['text'])
+def handle_text(message):
+    if not is_subscribed(message.from_user.id):
+        bot.send_message(
+            message.chat.id,
+            f"Пожалуйста, подпишитесь на канал {CHANNEL}, чтобы использовать бота."
+        )
+        return
 
-# Обработчики для остальных функций (Список игр, Помощь, и т.д.) остаются такими же
+    if message.text == "Список игр":
+        markup = types.InlineKeyboardMarkup()
+        for game in GAME_INFO:
+            markup.add(types.InlineKeyboardButton(text=game, callback_data=f"game_{game}"))
+        bot.send_message(message.chat.id, "Выберите игру:", reply_markup=markup)
 
-# Flask-приложение для Webhook
-app = Flask(__name__)
+    elif message.text == "Профиль":
+        data = user_data.get(message.from_user.id, {})
+        reply = (
+            f"Ваш профиль:\n"
+            f"Имя пользователя: @{data.get('username', 'не указано')}\n"
+            f"Дата регистрации: {data.get('registration_time', 'неизвестна')}\n"
+            f"Реферальная ссылка: {data.get('referral_link', 'отсутствует')}"
+        )
+        bot.send_message(message.chat.id, reply)
 
-@app.route('/')
-def home():
-    return "Бот работает!"
+    elif message.text == "Помощь":
+        bot.send_message(message.chat.id, "Если нужна помощь, напишите в Техподдержку.")
 
-@app.route(f'/{TOKEN}', methods=['POST'])
-def webhook():
-    json_string = request.get_data().decode('utf-8')
-    update = telebot.types.Update.de_json(json_string)
-    bot.process_new_updates([update])
-    return '', 200
+    elif message.text == "Техподдержка":
+        bot.send_message(message.chat.id, "Свяжитесь с нами через: @Oxide_Vzlom")
 
-# Установка Webhook
-WEBHOOK_URL = f"https://<your-railway-url>.railway.app/{TOKEN}"
-bot.remove_webhook()
-bot.set_webhook(url=WEBHOOK_URL)
+    elif message.text == "О нас":
+        bot.send_message(message.chat.id, "Мы создаём игровые проекты для вас!")
 
-# Запуск Flask приложения
+# Обработка кнопок с играми
+@bot.callback_query_handler(func=lambda call: call.data.startswith("game_"))
+def game_callback(call):
+    game_name = call.data.replace("game_", "")
+    game = GAME_INFO.get(game_name, {})
+    description = game.get("description", "Нет описания.")
+    link = game.get("link")
+
+    reply = f"Игра: {game_name}\nОписание: {description}\n"
+    if link:
+        reply += f"[Скачать игру]({link})"
+        bot.send_message(call.message.chat.id, reply, parse_mode='Markdown')
+    else:
+        reply += "Ссылка на скачивание недоступна."
+        bot.send_message(call.message.chat.id, reply)
+
+# Запуск бота
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    print("Бот запущен")
+    bot.infinity_polling()
