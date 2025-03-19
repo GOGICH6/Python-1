@@ -35,12 +35,17 @@ def send_welcome(message):
     user_id = message.from_user.id
 
     if is_subscribed(user_id):
+        markup = types.InlineKeyboardMarkup()
+        share_button = types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query="🔥 @CheatUper_Bot - лучший бесплатный чит на Oxide!")
+        markup.add(share_button)
+
         bot.send_message(
             message.chat.id, 
             f"✅ *Вы успешно подписались на все каналы и прошли регистрацию!*\n\n"
             f"🔗 *Ссылка на скачивание:* [👉 Нажмите здесь]({DOWNLOAD_CHANNEL_LINK})\n\n"
             f"⚠ *Важно!* Не отписывайтесь от каналов, иначе бот может посчитать вас мошенником и *добавить в ЧС во всех каналах!*",
-            parse_mode="Markdown"
+            parse_mode="Markdown",
+            reply_markup=markup
         )
     else:
         markup = types.InlineKeyboardMarkup(row_width=3)
@@ -61,12 +66,17 @@ def check_subscription(call):
     user_id = call.from_user.id
 
     if is_subscribed(user_id):
+        markup = types.InlineKeyboardMarkup()
+        share_button = types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query="🔥 @CheatUper_Bot - лучший бесплатный чит на Oxide!")
+        markup.add(share_button)
+
         bot.send_message(
             call.message.chat.id, 
             f"✅ *Вы успешно подписались на все каналы и прошли регистрацию!*\n\n"
             f"🔗 *Ссылка на скачивание:* [👉 Нажмите здесь]({DOWNLOAD_CHANNEL_LINK})\n\n"
             f"⚠ *Важно!* Не отписывайтесь от каналов, иначе бот может посчитать вас мошенником и *добавить в ЧС во всех каналах!*",
-            parse_mode="Markdown"
+            parse_mode="Markdown",
+            reply_markup=markup
         )
     else:
         bot.send_message(
