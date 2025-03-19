@@ -106,7 +106,7 @@ def check_subscription(call):
 def handle_unknown_command(message):
     bot.send_message(
         message.chat.id,
-        "⚠ *Неизвестная команда.* Используйте /start, чтобы начать.",
+        "🤖 *Я вас не понял!* Используйте команду /start, чтобы начать.",
         parse_mode="Markdown"
     )
 
