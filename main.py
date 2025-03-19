@@ -1,28 +1,21 @@
 import telebot
 import requests
 from telebot import types
-from datetime import datetime, timedelta
 
 # Токен бота
 TOKEN = '7812547873:AAFhjkRFZ5wGzZn4BCcOPjAAdgEZBRc4bq8'
 bot = telebot.TeleBot(TOKEN)
 
-# Админ ID
-ADMIN_ID = 1903057676  
-
 # Каналы
-NO_CHECK_CHANNEL = {"1 канал": "https://t.me/+gQzXZwSO5cliNGJi"}
+NO_CHECK_CHANNEL = {"1 канал": "https://t.me/+gQzXZwSO5cliNGJi"}  # Первый канал без проверки
 REQUIRED_CHANNELS = {
     "2 канал": "https://t.me/ChatByOxide",
     "3 канал": "https://t.me/Oxide_Vzlom"
 }
-DOWNLOAD_CHANNEL_LINK = "https://t.me/+dxcSK08NRmxjNWRi"
+DOWNLOAD_CHANNEL_LINK = "https://t.me/+dxcSK08NRmxjNWRi"  # Ссылка после подписки
 
 # Текст для отправки другу
 SHARE_TEXT = "- лучший бесплатный чит на Oxide!"
-
-# База пользователей
-user_data = {}
 
 # Проверка подписки
 def is_subscribed(user_id):
@@ -35,14 +28,18 @@ def is_subscribed(user_id):
             return False  
     return True  
 
-# 📌 Ловим /start (регистрируем пользователя)
+# Ловим /start (только в личных сообщениях)
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    user_data[message.from_user.id] = datetime.now()  # Регистрируем пользователя
+    if message.chat.type != "private":  
+        return  
 
-    if is_subscribed(message.from_user.id):
+    print(f"Команда /start от {message.from_user.id}")  
+    user_id = message.from_user.id
+
+    if is_subscribed(user_id):
         markup = types.InlineKeyboardMarkup()
-        share_button = types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query=SHARE_TEXT)
+        share_button = types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query=SHARE_TEXT)  # Теперь точно как надо
         markup.add(share_button)
 
         bot.send_message(
@@ -66,98 +63,44 @@ def send_welcome(message):
             reply_markup=markup
         )
 
-# 📌 Команда /admin (только для тебя)
-@bot.message_handler(commands=['admin'])
-def admin_panel(message):
-    if message.from_user.id != ADMIN_ID:
-        bot.send_message(message.chat.id, "⛔ У вас нет доступа к админ-панели.")
-        return
+# Проверка подписки (отправляет сообщение в чат, а не всплывающее уведомление)
+@bot.callback_query_handler(func=lambda call: call.data == "check_subscription")
+def check_subscription(call):
+    user_id = call.from_user.id
 
-    markup = types.InlineKeyboardMarkup()
-    stats_btn = types.InlineKeyboardButton("📊 Статистика", callback_data="admin_stats")
-    notify_btn = types.InlineKeyboardButton("📢 Оповещение", callback_data="admin_notify")
-    markup.add(stats_btn, notify_btn)
+    if is_subscribed(user_id):
+        markup = types.InlineKeyboardMarkup()
+        share_button = types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query=SHARE_TEXT)  # Теперь точно как надо
+        markup.add(share_button)
 
-    bot.send_message(message.chat.id, "🔧 *Админ-панель:*\nВыберите действие:", parse_mode="Markdown", reply_markup=markup)
+        bot.send_message(
+            call.message.chat.id, 
+            f"✅ *Вы успешно подписались на все каналы и прошли регистрацию!*\n\n"
+            f"🔗 *Ссылка на скачивание:* [👉 Нажмите здесь]({DOWNLOAD_CHANNEL_LINK})\n\n"
+            f"⚠ *Важно!* Не отписывайтесь от каналов, иначе бот может посчитать вас мошенником и *добавить в ЧС во всех каналах!*",
+            parse_mode="Markdown",
+            reply_markup=markup
+        )
+    else:
+        bot.send_message(
+            call.message.chat.id,
+            "❌ *Вы ещё не подписаны на все каналы!* Подпишитесь и нажмите \"✅ Проверить подписку\" снова.",
+            parse_mode="Markdown"
+        )
 
-# 📌 Обработчик кнопок в админке
-@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_"))
-def admin_buttons(call):
-    if call.from_user.id != ADMIN_ID:
-        bot.answer_callback_query(call.id, "⛔ У вас нет доступа к админ-панели.")
-        return
+# Обработка неверных команд (только в ЛС)
+@bot.message_handler(func=lambda message: message.chat.type == "private")
+def handle_unknown_command(message):
+    user_id = message.from_user.id
 
-    if call.data == "admin_stats":
-        bot.send_message(call.message.chat.id, get_statistics(), parse_mode="Markdown")
-
-    elif call.data == "admin_notify":
-        bot.send_message(call.message.chat.id, "📢 *Введите сообщение для рассылки:*", parse_mode="Markdown")
-        bot.register_next_step_handler(call.message, confirm_broadcast)
-
-# 📌 Функция получения статистики
-def get_statistics():
-    total_users = len(user_data)
-    now = datetime.now()
-
-    last_24h = sum(1 for date in user_data.values() if now - date <= timedelta(hours=24))
-    last_48h = sum(1 for date in user_data.values() if now - date <= timedelta(hours=48))
-    last_month = sum(1 for date in user_data.values() if now - date <= timedelta(days=30))
-
-    return f"📊 *Статистика:*\n\n" \
-           f"👥 *Всего пользователей:* {total_users}\n" \
-           f"📅 *За 24 часа:* {last_24h}\n" \
-           f"📅 *За 48 часов:* {last_48h}\n" \
-           f"📅 *За месяц:* {last_month}"
-
-# 📌 Подтверждение рассылки
-def confirm_broadcast(message):
-    if message.from_user.id != ADMIN_ID:
-        return
-
-    markup = types.InlineKeyboardMarkup()
-    confirm_btn = types.InlineKeyboardButton("✅ Да", callback_data="confirm_broadcast")
-    cancel_btn = types.InlineKeyboardButton("❌ Нет", callback_data="cancel_broadcast")
-    markup.add(confirm_btn, cancel_btn)
-
-    bot.send_message(message.chat.id, f"📢 *Вы хотите отправить это сообщение?*\n\n{message.text}", parse_mode="Markdown", reply_markup=markup)
-
-    bot.register_next_step_handler(message, lambda msg: save_broadcast(msg, message.text))
-
-# 📌 Сохранение сообщения для рассылки
-broadcast_message = ""
-
-def save_broadcast(msg, text):
-    global broadcast_message
-    broadcast_message = text
-
-# 📌 Подтверждение рассылки
-@bot.callback_query_handler(func=lambda call: call.data in ["confirm_broadcast", "cancel_broadcast"])
-def handle_broadcast_confirmation(call):
-    global broadcast_message
-
-    if call.from_user.id != ADMIN_ID:
-        bot.answer_callback_query(call.id, "⛔ У вас нет доступа к админ-панели.")
-        return
-
-    if call.data == "confirm_broadcast":
-        send_broadcast(broadcast_message)
-        bot.send_message(call.message.chat.id, "✅ Сообщение отправлено!")
-        broadcast_message = ""
-
-    elif call.data == "cancel_broadcast":
-        bot.send_message(call.message.chat.id, "❌ Рассылка отменена.")
-        broadcast_message = ""
-
-# 📌 Функция рассылки
-def send_broadcast(message_text):
-    sent_count = 0
-    for user_id in user_data.keys():
-        try:
-            bot.send_message(user_id, message_text, parse_mode="Markdown")
-            sent_count += 1
-        except:
-            continue
-    print(f"✅ Сообщение отправлено {sent_count} пользователям!")
+    if is_subscribed(user_id):  # Если подписан, но отправил неизвестную команду
+        bot.send_message(message.chat.id, "🤖 *Я вас не понял!* Используйте команду /start, чтобы начать.", parse_mode="Markdown")
+    else:
+        bot.send_message(
+            message.chat.id,
+            "⚠ *Вы не подписаны на все каналы!* Подпишитесь и нажмите \"✅ Проверить подписку\" снова.",
+            parse_mode="Markdown"
+        )
 
 if __name__ == "__main__":
     print("Бот запущен! Ожидаем команды...")
