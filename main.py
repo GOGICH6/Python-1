@@ -7,12 +7,12 @@ TOKEN = '7812547873:AAFhjkRFZ5wGzZn4BCcOPjAAdgEZBRc4bq8'
 bot = telebot.TeleBot(TOKEN)
 
 # Каналы
-NO_CHECK_CHANNEL = {"1 канал": "https://t.me/+i54KtE7dZ9I1NTJi"}
+NO_CHECK_CHANNEL = {"1 канал": "https://t.me/+gQzXZwSO5cliNGJi"}  # Исправленная ссылка на 1 канал
 REQUIRED_CHANNELS = {
     "2 канал": "https://t.me/ChatByOxide",
     "3 канал": "https://t.me/Oxide_Vzlom"
 }
-DOWNLOAD_CHANNEL_LINK = "https://t.me/+gQzXZwSO5cliNGJi"  # Обновленная конечная ссылка
+DOWNLOAD_CHANNEL_LINK = "https://t.me/+dxcSK08NRmxjNWRi"  # Финальная ссылка
 
 # Проверка подписки
 def is_subscribed(user_id):
