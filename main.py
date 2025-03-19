@@ -14,6 +14,9 @@ REQUIRED_CHANNELS = {
 }
 DOWNLOAD_CHANNEL_LINK = "https://t.me/+dxcSK08NRmxjNWRi"  # Ссылка после подписки
 
+# Текст для кнопки "Отправить другу"
+SHARE_TEXT = "🔥 @CheatUper_Bot - лучший бесплатный чит на Oxide!"
+
 # Проверка подписки
 def is_subscribed(user_id):
     for channel_name, channel_link in REQUIRED_CHANNELS.items():
@@ -36,7 +39,7 @@ def send_welcome(message):
 
     if is_subscribed(user_id):
         markup = types.InlineKeyboardMarkup()
-        share_button = types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query="🔥 @CheatUper_Bot - лучший бесплатный чит на Oxide!")
+        share_button = types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query=SHARE_TEXT)  # Исправленный текст без дублирования
         markup.add(share_button)
 
         bot.send_message(
@@ -67,7 +70,7 @@ def check_subscription(call):
 
     if is_subscribed(user_id):
         markup = types.InlineKeyboardMarkup()
-        share_button = types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query="🔥 @CheatUper_Bot - лучший бесплатный чит на Oxide!")
+        share_button = types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query=SHARE_TEXT)  # Исправленный текст без дублирования
         markup.add(share_button)
 
         bot.send_message(
