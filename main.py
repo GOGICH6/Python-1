@@ -15,7 +15,7 @@ REQUIRED_CHANNELS = {
 DOWNLOAD_CHANNEL_LINK = "https://t.me/+dxcSK08NRmxjNWRi"  # Ссылка после подписки
 
 # Текст для отправки другу
-SHARE_TEXT = "@CheatUper_Bot - лучший бесплатный чит на Oxide!"
+SHARE_TEXT = "- лучший бесплатный чит на Oxide!"
 
 # Проверка подписки
 def is_subscribed(user_id):
