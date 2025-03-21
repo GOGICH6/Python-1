@@ -17,12 +17,16 @@ DOWNLOAD_CHANNEL_LINK = "https://t.me/+dxcSK08NRmxjNWRi"  # Ссылка пос�
 # Список игр и ссылки на APK
 GAMES = {
     "Oxide: Survival Island": {
-        "Android": "https://example.com/oxide_android.apk",
+        "Android": [
+            "https://example.com/oxide_old_1.apk",
+            "https://example.com/oxide_old_2.apk",
+            "https://example.com/oxide_old_3.apk"
+        ],
         "iOS": None
     },
     "Standoff 2": {
-        "Android": "https://example.com/standoff2_android.apk",
-        "iOS": "https://example.com/standoff2_ios.ipa"
+        "Android": "https://t.me/+fgN29Y8PjTNhZWFi",
+        "iOS": None  # iOS недоступен
     }
 }
 
@@ -93,12 +97,21 @@ def send_apk_link(call):
     _, os_type, game_name = call.data.split("_")
 
     if GAMES[game_name][os_type]:
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=f"✅ *Вот ваша ссылка для {os_type}:*\n\n🔗 {GAMES[game_name][os_type]}",
-            parse_mode="Markdown"
-        )
+        if isinstance(GAMES[game_name][os_type], list):  # Если несколько ссылок (старые APK для Oxide)
+            apk_links = "\n".join(GAMES[game_name][os_type])
+            bot.edit_message_text(
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+                text=f"✅ *Доступные APK для {game_name} ({os_type}):*\n\n{apk_links}",
+                parse_mode="Markdown"
+            )
+        else:
+            bot.edit_message_text(
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+                text=f"✅ *Вот ваша ссылка для {os_type}:*\n\n🔗 {GAMES[game_name][os_type]}",
+                parse_mode="Markdown"
+            )
     else:
         bot.edit_message_text(
             chat_id=call.message.chat.id,
@@ -128,6 +141,20 @@ def check_subscription(call):
         bot.send_message(
             call.message.chat.id,
             "❌ *Вы ещё не подписаны на все каналы!* Подпишитесь и нажмите \"✅ Проверить подписку\" снова.",
+            parse_mode="Markdown"
+        )
+
+# Обработка неизвестных команд
+@bot.message_handler(func=lambda message: message.chat.type == "private")
+def handle_unknown_command(message):
+    user_id = message.from_user.id
+
+    if is_subscribed(user_id):  # Если подписан, но отправил неизвестную команду
+        bot.send_message(message.chat.id, "🤖 *Я вас не понял!* Используйте команду /start, чтобы начать.", parse_mode="Markdown")
+    else:
+        bot.send_message(
+            message.chat.id,
+            "⚠ *Вы не подписаны на все каналы!* Подпишитесь и нажмите \"✅ Проверить подписку\" снова.",
             parse_mode="Markdown"
         )
 
