@@ -5,28 +5,31 @@ from telebot import types
 TOKEN = '7812547873:AAFhjkRFZ5wGzZn4BCcOPjAAdgEZBRc4bq8'
 bot = telebot.TeleBot(TOKEN)
 
-# Доступные игры
+# Игры и их доступные APK
 GAMES = {
-    "Oxide: Survival Island": "Oxide",
-    "Standoff 2": "Standoff"
+    "Oxide: Survival Island": {
+        "key": "Oxide",
+        "available_apks": ["Android", "iOS"]
+    },
+    "Standoff 2": {
+        "key": "Standoff",
+        "available_apks": ["Android"]
+    }
 }
 
 # Каналы
-NO_CHECK_CHANNEL = {"1 канал": "https://t.me/+gQzXZwSO5cliNGJi"}  # Первый канал без проверки
+NO_CHECK_CHANNEL = {"1 канал": "https://t.me/+gQzXZwSO5cliNGJi"}  
 REQUIRED_CHANNELS = {
     "2 канал": "https://t.me/ChatByOxide",
     "3 канал": "https://t.me/Oxide_Vzlom"
 }
-DOWNLOAD_CHANNEL_LINK = "https://t.me/+dxcSK08NRmxjNWRi"  # Ссылка после подписки
-
-# Доступные APK (если нет, бот выдаст ошибку)
-AVAILABLE_APKS = {
-    "Oxide": ["Android", "iOS"],
-    "Standoff": ["Android"]
-}
+DOWNLOAD_CHANNEL_LINK = "https://t.me/+dxcSK08NRmxjNWRi"
 
 # Текст для отправки другу
 SHARE_TEXT = "– мой любимый бесплатный чит на Oxide: Survival Island! ❤️"
+
+# Хранение ID сообщений для удаления
+user_messages = {}
 
 # Проверка подписки
 def is_subscribed(user_id):
@@ -39,56 +42,81 @@ def is_subscribed(user_id):
             return False  
     return True  
 
-# Ловим /start (только в личных сообщениях)
+# Удаление старых сообщений перед отправкой нового
+def delete_old_message(chat_id):
+    if chat_id in user_messages:
+        try:
+            bot.delete_message(chat_id, user_messages[chat_id])
+        except:
+            pass
+
+# Ловим /start
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     if message.chat.type != "private":  
         return  
 
-    print(f"Команда /start от {message.from_user.id}")  
-    user_id = message.from_user.id
+    delete_old_message(message.chat.id)
 
     markup = types.InlineKeyboardMarkup()
     for game_name in GAMES.keys():
-        markup.add(types.InlineKeyboardButton(game_name, callback_data=f"game_{GAMES[game_name]}"))
+        markup.add(types.InlineKeyboardButton(game_name, callback_data=f"game_{GAMES[game_name]['key']}"))
     
-    bot.send_message(
+    sent_msg = bot.send_message(
         message.chat.id,
         "🎮 *Выберите игру, для которой хотите получить мод:*",
         parse_mode="Markdown",
         reply_markup=markup
     )
+    user_messages[message.chat.id] = sent_msg.message_id
 
 # Обрабатываем выбор игры
 @bot.callback_query_handler(func=lambda call: call.data.startswith("game_"))
 def game_selected(call):
-    game_key = call.data.split("_")[1]
-    markup = types.InlineKeyboardMarkup()
-    
-    # Спрашиваем ОС
-    for os_type in ["Android", "iOS", "Windows"]:
-        markup.add(types.InlineKeyboardButton(os_type, callback_data=f"os_{game_key}_{os_type}"))
+    delete_old_message(call.message.chat.id)
 
-    bot.edit_message_text(
+    game_key = call.data.split("_")[1]
+    game_name = next((name for name, data in GAMES.items() if data["key"] == game_key), None)
+
+    if not game_name:
+        bot.answer_callback_query(call.id, "Ошибка выбора игры!")
+        return
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    for os_type in ["Android", "iOS", "Windows"]:
+        emoji = "📱" if os_type == "Android" else "🍏" if os_type == "iOS" else "💻"
+        markup.add(types.InlineKeyboardButton(f"{emoji} {os_type}", callback_data=f"os_{game_key}_{os_type}"))
+
+    sent_msg = bot.edit_message_text(
         chat_id=call.message.chat.id,
         message_id=call.message.message_id,
-        text="📱 *Выберите вашу операционную систему:*",
+        text="🔷 *Выберите вашу систему:*",
         parse_mode="Markdown",
         reply_markup=markup
     )
+    user_messages[call.message.chat.id] = sent_msg.message_id
 
 # Обрабатываем выбор ОС
 @bot.callback_query_handler(func=lambda call: call.data.startswith("os_"))
 def os_selected(call):
+    delete_old_message(call.message.chat.id)
+
     _, game_key, os_type = call.data.split("_")
 
-    if os_type not in AVAILABLE_APKS.get(game_key, []):
-        bot.edit_message_text(
+    game_data = next((data for name, data in GAMES.items() if data["key"] == game_key), None)
+
+    if not game_data:
+        bot.answer_callback_query(call.id, "Ошибка выбора ОС!")
+        return
+
+    if os_type not in game_data["available_apks"]:
+        sent_msg = bot.edit_message_text(
             chat_id=call.message.chat.id,
             message_id=call.message.message_id,
             text="❌ *К сожалению, мод для этой ОС недоступен.*",
             parse_mode="Markdown"
         )
+        user_messages[call.message.chat.id] = sent_msg.message_id
         return
 
     markup = types.InlineKeyboardMarkup(row_width=3)
@@ -96,17 +124,20 @@ def os_selected(call):
     markup.add(*buttons)
     markup.add(types.InlineKeyboardButton("✅ Проверить подписку", callback_data=f"check_subscription_{game_key}_{os_type}"))
 
-    bot.edit_message_text(
+    sent_msg = bot.edit_message_text(
         chat_id=call.message.chat.id,
         message_id=call.message.message_id,
         text="📢 *Чтобы получить доступ к моду, подпишитесь на каналы ниже.*\nПосле подписки нажмите *\"✅ Проверить подписку\".*",
         parse_mode="Markdown",
         reply_markup=markup
     )
+    user_messages[call.message.chat.id] = sent_msg.message_id
 
 # Проверка подписки
 @bot.callback_query_handler(func=lambda call: call.data.startswith("check_subscription_"))
 def check_subscription(call):
+    delete_old_message(call.message.chat.id)
+
     user_id = call.from_user.id
 
     if is_subscribed(user_id):
@@ -114,7 +145,7 @@ def check_subscription(call):
         share_button = types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query=SHARE_TEXT)  
         markup.add(share_button)
 
-        bot.edit_message_text(
+        sent_msg = bot.edit_message_text(
             chat_id=call.message.chat.id,
             message_id=call.message.message_id,
             text=f"✅ *Вы успешно подписались на все каналы и прошли регистрацию!*\n\n"
@@ -123,6 +154,7 @@ def check_subscription(call):
             parse_mode="Markdown",
             reply_markup=markup
         )
+        user_messages[call.message.chat.id] = sent_msg.message_id
     else:
         bot.answer_callback_query(
             call.id,
@@ -133,16 +165,20 @@ def check_subscription(call):
 # Обработка неверных команд (только в ЛС)
 @bot.message_handler(func=lambda message: message.chat.type == "private")
 def handle_unknown_command(message):
+    delete_old_message(message.chat.id)
+
     user_id = message.from_user.id
 
     if is_subscribed(user_id):
-        bot.send_message(message.chat.id, "🤖 *Я вас не понял!* Используйте команду /start, чтобы начать.", parse_mode="Markdown")
+        sent_msg = bot.send_message(message.chat.id, "🤖 *Я вас не понял!* Используйте команду /start, чтобы начать.", parse_mode="Markdown")
+        user_messages[message.chat.id] = sent_msg.message_id
     else:
-        bot.send_message(
+        sent_msg = bot.send_message(
             message.chat.id,
             "⚠ *Вы не подписаны на все каналы!* Подпишитесь и нажмите \"✅ Проверить подписку\" снова.",
             parse_mode="Markdown"
         )
+        user_messages[message.chat.id] = sent_msg.message_id
 
 if __name__ == "__main__":
     print("Бот запущен! Ожидаем команды...")
