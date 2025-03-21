@@ -2,28 +2,24 @@ import telebot
 import requests
 import psycopg2
 from telebot import types
-from datetime import datetime, timedelta
+from datetime import datetime
 
-# Токен бота
+# === НАСТРОЙКИ ===
 TOKEN = '7812547873:AAFhjkRFZ5wGzZn4BCcOPjAAdgEZBRc4bq8'
-bot = telebot.TeleBot(TOKEN)
+ADMIN_ID = 1903057676
 
-# Подключение к базе данных (Neon.tech)
-DATABASE_URL = 'postgresql://neondb_owner:npg_G3VCfRiD0uwB@ep-late-sunset-a5ktl08d-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require'
-conn = psycopg2.connect(DATABASE_URL)
+# Подключение к PostgreSQL
+conn = psycopg2.connect("postgresql://neondb_owner:npg_G3VCfRiD0uwB@ep-late-sunset-a5ktl08d-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require")
 cursor = conn.cursor()
-
-# Создание таблицы, если не существует
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS users (
-    user_id BIGINT PRIMARY KEY,
-    registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
+    CREATE TABLE IF NOT EXISTS users (
+        user_id BIGINT PRIMARY KEY,
+        registration_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
 """)
 conn.commit()
 
-# Админ ID
-ADMIN_ID = 1903057676
+bot = telebot.TeleBot(TOKEN)
 
 # Каналы
 NO_CHECK_CHANNEL = {"1 канал": "https://t.me/+gQzXZwSO5cliNGJi"}
@@ -32,11 +28,11 @@ REQUIRED_CHANNELS = {
     "3 канал": "https://t.me/Oxide_Vzlom"
 }
 
-# Ссылки на загрузку
+# Ссылки на APK
 APK_LINKS = {
     "Oxide": {
         "Android": "https://t.me/+dxcSK08NRmxjNWRi",
-        "iOS": None
+        "iOS": "https://t.me/+U3QzhcTHKv1lNmMy"
     },
     "Standoff 2": {
         "Android": "https://t.me/+fgN29Y8PjTNhZWFi",
@@ -44,212 +40,150 @@ APK_LINKS = {
     }
 }
 
+# Текст при нажатии "Отправить другу"
 SHARE_TEXT = "– мой любимый бесплатный чит на Oxide! ❤️"
-user_data = {}
 
-# Сохраняем юзера
+# Временное хранилище
+user_state = {}
+
+# === ФУНКЦИИ ===
+
 def save_user(user_id):
     cursor.execute("INSERT INTO users (user_id) VALUES (%s) ON CONFLICT DO NOTHING", (user_id,))
     conn.commit()
 
-# Проверка подписки
 def is_subscribed(user_id):
-    for link in REQUIRED_CHANNELS.values():
-        username = link.split("/")[-1]
-        url = f"https://api.telegram.org/bot{TOKEN}/getChatMember?chat_id=@{username}&user_id={user_id}"
-        res = requests.get(url).json()
-        status = res.get("result", {}).get("status")
-        if status not in ['member', 'administrator', 'creator']:
+    for url in REQUIRED_CHANNELS.values():
+        username = url.split("/")[-1]
+        res = requests.get(f"https://api.telegram.org/bot{TOKEN}/getChatMember?chat_id=@{username}&user_id={user_id}").json()
+        if res.get("result", {}).get("status") not in ["member", "administrator", "creator"]:
             return False
     return True
 
-# /start
+# === ОБРАБОТЧИКИ ===
+
 @bot.message_handler(commands=['start'])
-def send_welcome(message):
+def handle_start(message):
     if message.chat.type != "private":
         return
-
     user_id = message.from_user.id
-    user_data[user_id] = {}
     save_user(user_id)
+    user_state[user_id] = {}
 
     markup = types.InlineKeyboardMarkup()
     markup.add(
-        types.InlineKeyboardButton("Oxide", callback_data="game_oxide"),
-        types.InlineKeyboardButton("Standoff 2", callback_data="game_standoff")
+        types.InlineKeyboardButton("Oxide", callback_data="game_Oxide"),
+        types.InlineKeyboardButton("Standoff 2", callback_data="game_Standoff 2")
     )
 
-    bot.send_message(
-        message.chat.id,
-        "🎮 *Выбери нужную игру:*",
-        parse_mode="Markdown",
-        reply_markup=markup
-    )
+    bot.send_message(message.chat.id, "🎮 *Выбери нужную игру:*", parse_mode="Markdown", reply_markup=markup)
 
-# Выбор игры
 @bot.callback_query_handler(func=lambda call: call.data.startswith("game_"))
-def select_game(call):
-    user_id = call.from_user.id
-    game = "Oxide" if call.data == "game_oxide" else "Standoff 2"
-    user_data[user_id]["game"] = game
+def choose_game(call):
+    game = call.data.split("_")[1]
+    user_state[call.from_user.id] = {"game": game}
 
     markup = types.InlineKeyboardMarkup()
     markup.add(
-        types.InlineKeyboardButton("📱 Android", callback_data="system_android"),
-        types.InlineKeyboardButton("🍏 iOS", callback_data="system_ios")
+        types.InlineKeyboardButton("📱 Android", callback_data="os_Android"),
+        types.InlineKeyboardButton("🍏 iOS", callback_data="os_iOS")
     )
 
-    bot.edit_message_text(
-        "🔹 *Выберите вашу систему:*",
-        call.message.chat.id,
-        call.message.message_id,
-        parse_mode="Markdown",
-        reply_markup=markup
-    )
+    bot.edit_message_text("🔹 *Выберите вашу систему:*", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
 
-# Выбор ОС
-@bot.callback_query_handler(func=lambda call: call.data.startswith("system_"))
-def select_system(call):
+@bot.callback_query_handler(func=lambda call: call.data.startswith("os_"))
+def choose_os(call):
+    system = call.data.split("_")[1]
     user_id = call.from_user.id
-    system = "Android" if call.data == "system_android" else "iOS"
-    user_data[user_id]["system"] = system
+    game = user_state.get(user_id, {}).get("game")
 
-    game = user_data[user_id].get("game")
+    if not game:
+        bot.send_message(call.message.chat.id, "❌ Вы не выбрали игру.")
+        return
+
+    user_state[user_id]["system"] = system
     apk_link = APK_LINKS.get(game, {}).get(system)
 
     if not apk_link:
-        bot.edit_message_text(
-            "❌ *Извините, но APK для данной игры и платформы пока недоступен.*",
-            call.message.chat.id,
-            call.message.message_id,
-            parse_mode="Markdown"
-        )
+        bot.edit_message_text("❌ APK для этой игры и платформы пока недоступен.", call.message.chat.id, call.message.message_id, parse_mode="Markdown")
         return
 
     if is_subscribed(user_id):
-        send_download_menu(call, game, system, apk_link)
+        send_download_menu(call.message.chat.id, apk_link)
     else:
-        send_subscription_request(call.message)
+        send_subscription_menu(call.message.chat.id)
 
-# Подписка
-def send_subscription_request(message):
+def send_subscription_menu(chat_id):
     markup = types.InlineKeyboardMarkup(row_width=3)
-    buttons = [
-        types.InlineKeyboardButton(name, url=link) for name, link in {**NO_CHECK_CHANNEL, **REQUIRED_CHANNELS}.items()
-    ]
-    markup.add(*buttons)
+    for name, url in {**NO_CHECK_CHANNEL, **REQUIRED_CHANNELS}.items():
+        markup.add(types.InlineKeyboardButton(name, url=url))
     markup.add(types.InlineKeyboardButton("✅ Проверить подписку", callback_data="check_subscription"))
+    bot.send_message(chat_id, "📢 *Чтобы получить доступ к моду, подпишитесь на каналы ниже.*\nПосле подписки нажмите \"✅ Проверить подписку\".", parse_mode="Markdown", reply_markup=markup)
 
-    bot.send_message(
-        message.chat.id,
-        "📢 *Чтобы получить доступ к моду, подпишитесь на каналы ниже.*\nПосле подписки нажмите *\"✅ Проверить подписку\".*",
-        parse_mode="Markdown",
-        reply_markup=markup
-    )
-
-# Проверка
 @bot.callback_query_handler(func=lambda call: call.data == "check_subscription")
-def check_subscription(call):
+def check_subs(call):
     user_id = call.from_user.id
-    game = user_data.get(user_id, {}).get("game")
-    system = user_data.get(user_id, {}).get("system")
+    game = user_state.get(user_id, {}).get("game")
+    system = user_state.get(user_id, {}).get("system")
     apk_link = APK_LINKS.get(game, {}).get(system)
 
     if not game or not system:
-        bot.send_message(call.message.chat.id, "❌ Ошибка! Вы не выбрали игру или систему.")
+        bot.send_message(call.message.chat.id, "❌ Вы не выбрали игру или ОС.")
         return
 
     if not apk_link:
-        bot.send_message(call.message.chat.id, "❌ APK для данной игры недоступен.")
+        bot.send_message(call.message.chat.id, "❌ APK для этой комбинации недоступен.")
         return
 
     if is_subscribed(user_id):
-        send_download_menu(call, game, system, apk_link)
+        send_download_menu(call.message.chat.id, apk_link)
     else:
-        bot.send_message(
-            call.message.chat.id,
-            "❌ *Вы ещё не подписаны на все каналы!* Подпишитесь и нажмите \"✅ Проверить подписку\" снова.",
-            parse_mode="Markdown"
-        )
+        bot.send_message(call.message.chat.id, "❌ *Вы ещё не подписались на все каналы!*", parse_mode="Markdown")
 
-# Меню после подписки
-def send_download_menu(call, game, system, apk_link):
+def send_download_menu(chat_id, link):
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query=SHARE_TEXT))
     markup.add(types.InlineKeyboardButton("ℹ️ Об моде", callback_data="about_mod"))
-
-    bot.edit_message_text(
+    bot.send_message(chat_id,
         f"✅ *Вы успешно подписались на все каналы и прошли регистрацию!*\n\n"
-        f"🔗 *Ссылка на скачивание:* [👉 Нажмите здесь]({apk_link})\n\n"
+        f"🔗 *Ссылка на скачивание:* [👉 Нажмите здесь]({link})\n\n"
         f"⚠ *Важно!* Не отписывайтесь от каналов, иначе бот может посчитать вас мошенником и *добавить в ЧС во всех каналах!*",
-        call.message.chat.id,
-        call.message.message_id,
-        parse_mode="Markdown",
-        reply_markup=markup
+        parse_mode="Markdown", reply_markup=markup
     )
 
-# Об моде
 @bot.callback_query_handler(func=lambda call: call.data == "about_mod")
 def about_mod(call):
+    game = user_state.get(call.from_user.id, {}).get("game", "этого мода")
     markup = types.InlineKeyboardMarkup()
-    markup.add(
-        types.InlineKeyboardButton("💬 Техподдержка", callback_data="support"),
-        types.InlineKeyboardButton("🔙 Назад", callback_data="check_subscription")
-    )
+    markup.add(types.InlineKeyboardButton("💬 Техподдержка", url="https://t.me/Oxide_Vzlom_bot"))
+    markup.add(types.InlineKeyboardButton("🔙 Назад", callback_data="check_subscription"))
+    bot.send_message(call.message.chat.id, f"ℹ️ *Информация о моде для {game} временно отсутствует.*", parse_mode="Markdown", reply_markup=markup)
 
-    game = user_data.get(call.from_user.id, {}).get("game", "мода")
-    bot.edit_message_text(
-        f"ℹ️ *Информация*\n\n**Информация о моде для {game} временно отсутствует.**",
-        call.message.chat.id,
-        call.message.message_id,
-        parse_mode="Markdown",
-        reply_markup=markup
-    )
-
-# Техподдержка
-@bot.callback_query_handler(func=lambda call: call.data == "support")
-def support(call):
-    bot.send_message(
-        call.message.chat.id,
-        "Если у вас возникли вопросы или проблемы, вы можете обратиться в техподдержку: <b>@Oxide_Vzlom_bot</b>",
-        parse_mode="HTML"
-    )
-
-# Команда /admin
+# /admin
 @bot.message_handler(commands=['admin'])
-def admin(message):
+def admin_panel(message):
     if message.from_user.id != ADMIN_ID:
-        bot.send_message(message.chat.id, "❌ У вас нет доступа.")
-        return
-
+        return bot.send_message(message.chat.id, "⛔ Нет доступа.")
+    
     cursor.execute("SELECT COUNT(*) FROM users")
     total = cursor.fetchone()[0]
-
-    cursor.execute("SELECT COUNT(*) FROM users WHERE registration_date >= NOW() - INTERVAL '1 day'")
+    cursor.execute("SELECT COUNT(*) FROM users WHERE registration_time >= NOW() - INTERVAL '1 day'")
     last_24h = cursor.fetchone()[0]
-
-    cursor.execute("SELECT COUNT(*) FROM users WHERE registration_date >= NOW() - INTERVAL '2 day'")
+    cursor.execute("SELECT COUNT(*) FROM users WHERE registration_time >= NOW() - INTERVAL '2 day'")
     last_48h = cursor.fetchone()[0]
 
-    bot.send_message(
-        message.chat.id,
+    bot.send_message(message.chat.id,
         f"📊 *Статистика:*\n\n"
         f"👥 Всего пользователей: {total}\n"
-        f"🕛 За 24 часа: {last_24h}\n"
-        f"🕒 За 48 часов: {last_48h}",
+        f"🕐 За 24ч: {last_24h}\n"
+        f"🕑 За 48ч: {last_48h}",
         parse_mode="Markdown"
     )
 
-# Неизвестные команды
 @bot.message_handler(func=lambda msg: msg.chat.type == "private")
-def unknown_command(msg):
-    bot.send_message(
-        msg.chat.id,
-        "🤖 *Я вас не понял!* Используйте команду /start, чтобы начать.",
-        parse_mode="Markdown"
-    )
+def fallback(msg):
+    bot.send_message(msg.chat.id, "🤖 *Я вас не понял!* Используйте /start", parse_mode="Markdown")
 
-if __name__ == "__main__":
-    print("Бот запущен.")
-    bot.infinity_polling()
-    
+# === Запуск ===
+print("Бот запущен.")
+bot.infinity_polling()
