@@ -1,10 +1,25 @@
 import telebot
 import requests
+import psycopg2
+from datetime import datetime
 from telebot import types
 
-# Токен бота
+# Токен и база
 TOKEN = '7812547873:AAFhjkRFZ5wGzZn4BCcOPjAAdgEZBRc4bq8'
+DB_URL = 'postgresql://neondb_owner:npg_G3VCfRiD0uwB@ep-late-sunset-a5ktl08d-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require'
+
 bot = telebot.TeleBot(TOKEN)
+
+# База данных: подключение и создание таблицы
+conn = psycopg2.connect(DB_URL)
+conn.autocommit = True
+cursor = conn.cursor()
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        user_id BIGINT PRIMARY KEY,
+        registration_time TIMESTAMP
+    )
+""")
 
 # Каналы
 NO_CHECK_CHANNEL = {"1 канал": "https://t.me/+gQzXZwSO5cliNGJi"}
@@ -28,7 +43,7 @@ APK_LINKS = {
 # Текст для отправки другу
 SHARE_TEXT = "– мой любимый бесплатный чит на Oxide! ❤️"
 
-# Хранилище выбора пользователя
+# Временное хранилище
 user_data = {}
 
 # Проверка подписки
@@ -47,7 +62,6 @@ def is_subscribed(user_id):
 def send_welcome(message):
     if message.chat.type != "private":
         return
-
     user_id = message.from_user.id
     user_data[user_id] = {}
 
@@ -91,7 +105,6 @@ def select_system(call):
     user_id = call.from_user.id
     system = "Android" if call.data == "system_android" else "iOS"
     user_data[user_id]["system"] = system
-
     game = user_data[user_id].get("game")
     apk_link = APK_LINKS.get(game, {}).get(system)
 
@@ -105,17 +118,26 @@ def select_system(call):
         return
 
     if is_subscribed(user_id):
+        save_user_id(user_id)
         send_download_menu(call, game, system, apk_link)
     else:
         send_subscription_request(call.message)
 
-# Запрос подписки (старый дизайн)
+# Сохраняем ID пользователя
+def save_user_id(user_id):
+    now = datetime.now()
+    try:
+        cursor.execute(
+            "INSERT INTO users (user_id, registration_time) VALUES (%s, %s) ON CONFLICT (user_id) DO NOTHING",
+            (user_id, now)
+        )
+    except Exception as e:
+        print("Ошибка при сохранении ID:", e)
+
+# Запрос подписки
 def send_subscription_request(message):
     markup = types.InlineKeyboardMarkup(row_width=3)
-
-    buttons = [
-        types.InlineKeyboardButton(name, url=link) for name, link in {**NO_CHECK_CHANNEL, **REQUIRED_CHANNELS}.items()
-    ]
+    buttons = [types.InlineKeyboardButton(name, url=link) for name, link in {**NO_CHECK_CHANNEL, **REQUIRED_CHANNELS}.items()]
     markup.add(*buttons)
     markup.add(types.InlineKeyboardButton("✅ Проверить подписку", callback_data="check_subscription"))
 
@@ -143,6 +165,7 @@ def check_subscription(call):
         return
 
     if is_subscribed(user_id):
+        save_user_id(user_id)
         send_download_menu(call, game, system, apk_link)
     else:
         bot.send_message(
@@ -151,7 +174,7 @@ def check_subscription(call):
             parse_mode="Markdown"
         )
 
-# Меню после успешной подписки
+# Меню после подписки
 def send_download_menu(call, game, system, apk_link):
     markup = types.InlineKeyboardMarkup()
     markup.add(
@@ -198,6 +221,32 @@ def support(call):
         parse_mode="HTML"
     )
 
+# Команда /admin
+@bot.message_handler(commands=['admin'])
+def show_admin_stats(message):
+    if message.from_user.id != 1903057676:
+        bot.reply_to(message, "У вас нет доступа.")
+        return
+
+    try:
+        cursor.execute("SELECT COUNT(*) FROM users")
+        total = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM users WHERE registration_time > NOW() - INTERVAL '24 HOURS'")
+        last_24 = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM users WHERE registration_time > NOW() - INTERVAL '48 HOURS'")
+        last_48 = cursor.fetchone()[0]
+    except Exception as e:
+        bot.reply_to(message, f"Ошибка БД: {e}")
+        return
+
+    stats = (
+        f"📊 Статистика:\n\n"
+        f"👥 Всего пользователей: {total}\n"
+        f"🕒 За 24 часа: {last_24}\n"
+        f"🕒 За 48 часов: {last_48}"
+    )
+    bot.send_message(message.chat.id, stats)
+
 # Неизвестные команды
 @bot.message_handler(func=lambda msg: msg.chat.type == "private")
 def unknown_command(msg):
@@ -210,3 +259,4 @@ def unknown_command(msg):
 if __name__ == "__main__":
     print("Бот запущен.")
     bot.infinity_polling()
+    
