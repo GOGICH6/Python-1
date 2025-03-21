@@ -8,7 +8,7 @@ from datetime import datetime
 TOKEN = '7812547873:AAFhjkRFZ5wGzZn4BCcOPjAAdgEZBRc4bq8'
 ADMIN_ID = 1903057676
 
-# Подключение к PostgreSQL
+# Подключение к PostgreSQL (Neon)
 conn = psycopg2.connect("postgresql://neondb_owner:npg_G3VCfRiD0uwB@ep-late-sunset-a5ktl08d-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require")
 cursor = conn.cursor()
 cursor.execute("""
@@ -21,14 +21,13 @@ conn.commit()
 
 bot = telebot.TeleBot(TOKEN)
 
-# Каналы
+# --- Настройки
 NO_CHECK_CHANNEL = {"1 канал": "https://t.me/+gQzXZwSO5cliNGJi"}
 REQUIRED_CHANNELS = {
     "2 канал": "https://t.me/ChatByOxide",
     "3 канал": "https://t.me/Oxide_Vzlom"
 }
 
-# Ссылки на APK
 APK_LINKS = {
     "Oxide": {
         "Android": "https://t.me/+dxcSK08NRmxjNWRi",
@@ -40,13 +39,10 @@ APK_LINKS = {
     }
 }
 
-# Текст при нажатии "Отправить другу"
 SHARE_TEXT = "– мой любимый бесплатный чит на Oxide! ❤️"
-
-# Временное хранилище
 user_state = {}
 
-# === ФУНКЦИИ ===
+# === Вспомогательные функции ===
 
 def save_user(user_id):
     cursor.execute("INSERT INTO users (user_id) VALUES (%s) ON CONFLICT DO NOTHING", (user_id,))
@@ -60,8 +56,7 @@ def is_subscribed(user_id):
             return False
     return True
 
-# === ОБРАБОТЧИКИ ===
-
+# === Команда /start ===
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     if message.chat.type != "private":
@@ -78,6 +73,7 @@ def handle_start(message):
 
     bot.send_message(message.chat.id, "🎮 *Выбери нужную игру:*", parse_mode="Markdown", reply_markup=markup)
 
+# === Выбор игры ===
 @bot.callback_query_handler(func=lambda call: call.data.startswith("game_"))
 def choose_game(call):
     game = call.data.split("_")[1]
@@ -91,6 +87,7 @@ def choose_game(call):
 
     bot.edit_message_text("🔹 *Выберите вашу систему:*", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
 
+# === Выбор ОС ===
 @bot.callback_query_handler(func=lambda call: call.data.startswith("os_"))
 def choose_os(call):
     system = call.data.split("_")[1]
@@ -113,6 +110,7 @@ def choose_os(call):
     else:
         send_subscription_menu(call.message.chat.id)
 
+# === Меню подписки ===
 def send_subscription_menu(chat_id):
     markup = types.InlineKeyboardMarkup(row_width=3)
     for name, url in {**NO_CHECK_CHANNEL, **REQUIRED_CHANNELS}.items():
@@ -120,6 +118,7 @@ def send_subscription_menu(chat_id):
     markup.add(types.InlineKeyboardButton("✅ Проверить подписку", callback_data="check_subscription"))
     bot.send_message(chat_id, "📢 *Чтобы получить доступ к моду, подпишитесь на каналы ниже.*\nПосле подписки нажмите \"✅ Проверить подписку\".", parse_mode="Markdown", reply_markup=markup)
 
+# === Проверка подписки ===
 @bot.callback_query_handler(func=lambda call: call.data == "check_subscription")
 def check_subs(call):
     user_id = call.from_user.id
@@ -140,6 +139,7 @@ def check_subs(call):
     else:
         bot.send_message(call.message.chat.id, "❌ *Вы ещё не подписались на все каналы!*", parse_mode="Markdown")
 
+# === Меню после подписки ===
 def send_download_menu(chat_id, link):
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query=SHARE_TEXT))
@@ -151,6 +151,7 @@ def send_download_menu(chat_id, link):
         parse_mode="Markdown", reply_markup=markup
     )
 
+# === Об моде ===
 @bot.callback_query_handler(func=lambda call: call.data == "about_mod")
 def about_mod(call):
     game = user_state.get(call.from_user.id, {}).get("game", "этого мода")
@@ -159,7 +160,7 @@ def about_mod(call):
     markup.add(types.InlineKeyboardButton("🔙 Назад", callback_data="check_subscription"))
     bot.send_message(call.message.chat.id, f"ℹ️ *Информация о моде для {game} временно отсутствует.*", parse_mode="Markdown", reply_markup=markup)
 
-# /admin
+# === Команда /admin ===
 @bot.message_handler(commands=['admin'])
 def admin_panel(message):
     if message.from_user.id != ADMIN_ID:
@@ -180,10 +181,11 @@ def admin_panel(message):
         parse_mode="Markdown"
     )
 
-@bot.message_handler(func=lambda msg: msg.chat.type == "private")
+# === Обработка неизвестных команд ===
+@bot.message_handler(func=lambda msg: msg.chat.type == "private" and not msg.text.startswith('/'))
 def fallback(msg):
     bot.send_message(msg.chat.id, "🤖 *Я вас не понял!* Используйте /start", parse_mode="Markdown")
 
-# === Запуск ===
+# === Запуск бота ===
 print("Бот запущен.")
 bot.infinity_polling()
