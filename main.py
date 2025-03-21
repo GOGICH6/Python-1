@@ -20,7 +20,6 @@ conn.commit()
 
 bot = telebot.TeleBot(TOKEN)
 
-# Настройки
 NO_CHECK_CHANNEL = {"1 канал": "https://t.me/+gQzXZwSO5cliNGJi"}
 REQUIRED_CHANNELS = {
     "2 канал": "https://t.me/ChatByOxide",
@@ -55,7 +54,6 @@ def is_subscribed(user_id):
 def start(message):
     if message.chat.type != "private":
         return
-
     user_id = message.from_user.id
     save_user(user_id)
     user_state[user_id] = {}
@@ -65,7 +63,6 @@ def start(message):
         types.InlineKeyboardButton("Oxide", callback_data="game_oxide"),
         types.InlineKeyboardButton("Standoff 2", callback_data="game_standoff2")
     )
-
     bot.send_message(message.chat.id, "🎮 *Выбери нужную игру:*", parse_mode="Markdown", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("game_"))
@@ -73,14 +70,13 @@ def handle_game(call):
     user_id = call.from_user.id
     game_key = call.data.replace("game_", "")
     game_name = "Oxide" if game_key == "oxide" else "Standoff2"
-
     user_state[user_id] = {"game": game_name}
+
     markup = types.InlineKeyboardMarkup()
     markup.add(
         types.InlineKeyboardButton("📱 Android", callback_data="os_android"),
         types.InlineKeyboardButton("🍏 iOS", callback_data="os_ios")
     )
-
     bot.edit_message_text("🔹 *Выберите вашу систему:*", call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("os_"))
@@ -133,8 +129,7 @@ def check_subscription(call):
         send_download_menu(call.message.chat.id, apk_link)
     else:
         bot.send_message(call.message.chat.id, "❌ *Вы ещё не подписались на все каналы!*", parse_mode="Markdown")
-
-def send_download_menu(chat_id, link):
+        def send_download_menu(chat_id, link):
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query=SHARE_TEXT))
     markup.add(types.InlineKeyboardButton("ℹ️ Об моде", callback_data="about_mod"))
@@ -157,26 +152,33 @@ def about_mod(call):
 def admin_panel(message):
     if message.from_user.id != ADMIN_ID:
         return bot.send_message(message.chat.id, "⛔ Нет доступа.")
-    
-    cursor.execute("SELECT COUNT(*) FROM users")
-    total = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM users WHERE registration_time >= NOW() - INTERVAL '1 day'")
-    last_24h = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM users WHERE registration_time >= NOW() - INTERVAL '2 day'")
-    last_48h = cursor.fetchone()[0]
 
-    bot.send_message(message.chat.id,
-        f"📊 *Статистика:*\n\n"
-        f"👥 Всего пользователей: {total}\n"
-        f"🕐 За 24ч: {last_24h}\n"
-        f"🕑 За 48ч: {last_48h}",
+    try:
+        cursor.execute("SELECT COUNT(*) FROM users")
+        total = cursor.fetchone()[0] or 0
+        cursor.execute("SELECT COUNT(*) FROM users WHERE registration_time >= NOW() - INTERVAL '1 day'")
+        last_24h = cursor.fetchone()[0] or 0
+        cursor.execute("SELECT COUNT(*) FROM users WHERE registration_time >= NOW() - INTERVAL '2 day'")
+        last_48h = cursor.fetchone()[0] or 0
+
+        bot.send_message(message.chat.id,
+            f"📊 *Статистика:*\n\n"
+            f"👥 Всего пользователей: {total}\n"
+            f"🕐 За 24ч: {last_24h}\n"
+            f"🕑 За 48ч: {last_48h}",
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        print(f"Ошибка в /admin: {e}")
+        bot.send_message(message.chat.id, "⚠️ Ошибка при получении статистики.")
+        @bot.message_handler(func=lambda msg: msg.chat.type == "private" and not msg.text.startswith('/'))
+def fallback(msg):
+    bot.send_message(
+        msg.chat.id,
+        "🤖 *Я вас не понял!* Используйте команду /start, чтобы начать.",
         parse_mode="Markdown"
     )
 
-@bot.message_handler(func=lambda msg: msg.chat.type == "private" and not msg.text.startswith('/'))
-def fallback(msg):
-    bot.send_message(msg.chat.id, "🤖 *Я вас не понял!* Используйте /start", parse_mode="Markdown")
-
-print("✅ Бот запущен.")
-bot.infinity_polling()
-    
+if __name__ == "__main__":
+    print("✅ Бот запущен.")
+    bot.infinity_polling()
