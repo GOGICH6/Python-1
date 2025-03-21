@@ -26,7 +26,7 @@ APK_LINKS = {
 }
 
 # Текст для отправки другу
-SHARE_TEXT = "– мой любимый бесплатный чит на Oxide: Survival Island! ❤️"
+SHARE_TEXT = "– мой любимый бесплатный чит на Oxide! ❤️"
 
 # Словарь для хранения выбора пользователей
 user_data = {}
@@ -52,11 +52,11 @@ def send_welcome(message):
     user_data[user_id] = {}
 
     markup = types.InlineKeyboardMarkup()
-    oxide_button = types.InlineKeyboardButton("Oxide: Survival Island", callback_data="game_oxide")
+    oxide_button = types.InlineKeyboardButton("Oxide", callback_data="game_oxide")
     standoff_button = types.InlineKeyboardButton("Standoff 2", callback_data="game_standoff")
     markup.add(oxide_button, standoff_button)
 
-    bot.send_message(message.chat.id, "🎮 *Выберите игру, для которой хотите получить мод:*", parse_mode="Markdown", reply_markup=markup)
+    bot.send_message(message.chat.id, "🎮 *Выбери нужную игру:*", parse_mode="Markdown", reply_markup=markup)
 
 # Обработчик выбора игры
 @bot.callback_query_handler(func=lambda call: call.data.startswith("game_"))
@@ -137,29 +137,24 @@ def check_subscription(call):
             parse_mode="Markdown"
         )
 
-# Обработчик кнопки "ℹ️ Об моде"
+# Обработчик кнопки "💬 Техподдержка"
 @bot.callback_query_handler(func=lambda call: call.data == "about_mod")
 def about_mod(call):
-    user_id = call.from_user.id
-    game = user_data.get(user_id, {}).get("game", "неизвестной игры")
-
     markup = types.InlineKeyboardMarkup()
+    support_button = types.InlineKeyboardButton("💬 Техподдержка", callback_data="support")
     back_button = types.InlineKeyboardButton("🔙 Назад", callback_data="check_subscription")
+    markup.add(support_button)
     markup.add(back_button)
 
     bot.edit_message_text(
-        f"ℹ️ *Информация*\n\nИнформация о моде для {game} временно отсутствует.",
+        f"ℹ️ *Информация*\n\n**Информация о моде для Oxide временно отсутствует.**",
         call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup
     )
 
-# Обработка неверных команд (только в ЛС)
-@bot.message_handler(func=lambda message: message.chat.type == "private")
-def handle_unknown_command(message):
-    bot.send_message(
-        message.chat.id,
-        "🤖 *Я вас не понял!* Используйте команду /start, чтобы начать.",
-        parse_mode="Markdown"
-    )
+# Обработчик техподдержки
+@bot.callback_query_handler(func=lambda call: call.data == "support")
+def support(call):
+    bot.send_message(call.message.chat.id, "**Если у вас возникли вопросы или проблемы, вы можете обратиться в техподдержку: @Oxide_Vzlom_bot**", parse_mode="Markdown")
 
 if __name__ == "__main__":
     print("Бот запущен! Ожидаем команды...")
