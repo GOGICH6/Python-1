@@ -17,7 +17,7 @@ REQUIRED_CHANNELS = {
 APK_LINKS = {
     "Oxide": {
         "Android": "https://t.me/+dxcSK08NRmxjNWRi",
-        "iOS": "https://t.me/+U3QzhcTHKv1lNmMy"
+        "iOS": None
     },
     "Standoff 2": {
         "Android": "https://t.me/+fgN29Y8PjTNhZWFi",
@@ -107,17 +107,24 @@ def select_system(call):
     if is_subscribed(user_id):
         send_download_menu(call, game, system, apk_link)
     else:
-        markup = types.InlineKeyboardMarkup(row_width=3)
-        for name, link in {**NO_CHECK_CHANNEL, **REQUIRED_CHANNELS}.items():
-            markup.add(types.InlineKeyboardButton(name, url=link))
-        markup.add(types.InlineKeyboardButton("✅ Проверить подписку", callback_data="check_subscription"))
-        bot.edit_message_text(
-            "📢 *Чтобы получить доступ к моду, подпишитесь на каналы ниже.*\nПосле подписки нажмите *\"✅ Проверить подписку\".*",
-            call.message.chat.id,
-            call.message.message_id,
-            parse_mode="Markdown",
-            reply_markup=markup
-        )
+        send_subscription_request(call.message)
+
+# Запрос подписки (старый дизайн)
+def send_subscription_request(message):
+    markup = types.InlineKeyboardMarkup(row_width=3)
+
+    buttons = [
+        types.InlineKeyboardButton(name, url=link) for name, link in {**NO_CHECK_CHANNEL, **REQUIRED_CHANNELS}.items()
+    ]
+    markup.add(*buttons)
+    markup.add(types.InlineKeyboardButton("✅ Проверить подписку", callback_data="check_subscription"))
+
+    bot.send_message(
+        message.chat.id,
+        "📢 *Чтобы получить доступ к моду, подпишитесь на каналы ниже.*\nПосле подписки нажмите *\"✅ Проверить подписку\".*",
+        parse_mode="Markdown",
+        reply_markup=markup
+    )
 
 # Проверка подписки
 @bot.callback_query_handler(func=lambda call: call.data == "check_subscription")
@@ -182,7 +189,7 @@ def about_mod(call):
         reply_markup=markup
     )
 
-# Техподдержка (HTML чтобы ник отображался корректно)
+# Техподдержка
 @bot.callback_query_handler(func=lambda call: call.data == "support")
 def support(call):
     bot.send_message(
