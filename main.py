@@ -17,7 +17,7 @@ REQUIRED_CHANNELS = {
 APK_LINKS = {
     "Oxide": {
         "Android": "https://t.me/+dxcSK08NRmxjNWRi",
-        "iOS": None
+        "iOS": "https://t.me/+U3QzhcTHKv1lNmMy"
     },
     "Standoff 2": {
         "Android": "https://t.me/+fgN29Y8PjTNhZWFi",
