@@ -120,7 +120,9 @@ def check_subscription(call):
     if is_subscribed(user_id):
         markup = types.InlineKeyboardMarkup()
         share_button = types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query=SHARE_TEXT)
+        about_button = types.InlineKeyboardButton("ℹ️ Об моде", callback_data="about_mod")
         markup.add(share_button)
+        markup.add(about_button)
 
         bot.edit_message_text(
             f"✅ *Вы успешно подписались на все каналы и прошли регистрацию!*\n\n"
@@ -134,6 +136,21 @@ def check_subscription(call):
             "❌ *Вы ещё не подписаны на все каналы!* Подпишитесь и нажмите \"✅ Проверить подписку\" снова.",
             parse_mode="Markdown"
         )
+
+# Обработчик кнопки "ℹ️ Об моде"
+@bot.callback_query_handler(func=lambda call: call.data == "about_mod")
+def about_mod(call):
+    user_id = call.from_user.id
+    game = user_data.get(user_id, {}).get("game", "неизвестной игры")
+
+    markup = types.InlineKeyboardMarkup()
+    back_button = types.InlineKeyboardButton("🔙 Назад", callback_data="check_subscription")
+    markup.add(back_button)
+
+    bot.edit_message_text(
+        f"ℹ️ *Информация*\n\nИнформация о моде для {game} временно отсутствует.",
+        call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup
+    )
 
 # Обработка неверных команд (только в ЛС)
 @bot.message_handler(func=lambda message: message.chat.type == "private")
