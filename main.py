@@ -151,10 +151,23 @@ def about_mod(call):
         call.message.chat.id, call.message.message_id, parse_mode="Markdown", reply_markup=markup
     )
 
-# Обработчик техподдержки
+# Обработчик техподдержки (с исправленным ником)
 @bot.callback_query_handler(func=lambda call: call.data == "support")
 def support(call):
-    bot.send_message(call.message.chat.id, "**Если у вас возникли вопросы или проблемы, вы можете обратиться в техподдержку: @Oxide_Vzlom_bot**", parse_mode="Markdown")
+    bot.send_message(
+        call.message.chat.id,
+        "*Если у вас возникли вопросы или проблемы, вы можете обратиться в техподдержку:* @Oxide_Vzlom_bot",
+        parse_mode="Markdown"
+    )
+
+# Обработка неверных команд (теперь работает)
+@bot.message_handler(func=lambda message: message.chat.type == "private")
+def handle_unknown_command(message):
+    bot.send_message(
+        message.chat.id,
+        "🤖 *Я вас не понял!* Используйте команду /start, чтобы начать.",
+        parse_mode="Markdown"
+    )
 
 if __name__ == "__main__":
     print("Бот запущен! Ожидаем команды...")
