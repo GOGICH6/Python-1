@@ -260,7 +260,8 @@ def support(call):
         call.message.message_id,
         parse_mode="Markdown",
         reply_markup=markup
-    ) Админ-панель ==========
+    ) 
+    # Админ-панель ==========
 def get_stats():
     ensure_connection()
     cursor.execute("SELECT COUNT(*) FROM users")
