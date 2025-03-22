@@ -1,25 +1,30 @@
+import os
 import telebot
 import requests
 import psycopg2
-from datetime import datetime
 from telebot import types
+from datetime import datetime
 
-# Токен и база
-TOKEN = '7812547873:AAFhjkRFZ5wGzZn4BCcOPjAAdgEZBRc4bq8'
-DB_URL = 'postgresql://neondb_owner:npg_G3VCfRiD0uwB@ep-late-sunset-a5ktl08d-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require'
+# Данные
+BOT_TOKEN = '7812547873:AAFhjkRFZ5wGzZn4BCcOPjAAdgEZBRc4bq8'
+ADMIN_ID = 1903057676
+DB_URL = "postgresql://neondb_owner:npg_G3VCfRiD0uwB@ep-late-sunset-a5ktl08d-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require"
 
-bot = telebot.TeleBot(TOKEN)
-
-# База данных: подключение и создание таблицы
+bot = telebot.TeleBot(BOT_TOKEN)
 conn = psycopg2.connect(DB_URL)
 conn.autocommit = True
 cursor = conn.cursor()
+
+# Таблица пользователей
 cursor.execute("""
-    CREATE TABLE IF NOT EXISTS users (
-        user_id BIGINT PRIMARY KEY,
-        registration_time TIMESTAMP
-    )
+CREATE TABLE IF NOT EXISTS users (
+    user_id BIGINT PRIMARY KEY,
+    registration_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 """)
+
+def register_user(user_id):
+    cursor.execute("INSERT INTO users (user_id) VALUES (%s) ON CONFLICT DO NOTHING", (user_id,))
 
 # Каналы
 NO_CHECK_CHANNEL = {"1 канал": "https://t.me/+gQzXZwSO5cliNGJi"}
@@ -28,7 +33,7 @@ REQUIRED_CHANNELS = {
     "3 канал": "https://t.me/Oxide_Vzlom"
 }
 
-# Ссылки на загрузку
+# Ссылки
 APK_LINKS = {
     "Oxide": {
         "Android": "https://t.me/+dxcSK08NRmxjNWRi",
@@ -40,48 +45,59 @@ APK_LINKS = {
     }
 }
 
-# Текст для отправки другу
+# Поделиться
 SHARE_TEXT = "– мой любимый бесплатный чит на Oxide! ❤️"
 
-# Временное хранилище
+# Словарь выбора
 user_data = {}
 
-# Проверка подписки
 def is_subscribed(user_id):
-    for channel_link in REQUIRED_CHANNELS.values():
-        channel_username = channel_link.split("/")[-1]
-        url = f"https://api.telegram.org/bot{TOKEN}/getChatMember?chat_id=@{channel_username}&user_id={user_id}"
-        r = requests.get(url).json()
-        status = r.get("result", {}).get("status")
-        if status not in ["member", "administrator", "creator"]:
-            return False
-    return True
+    try:
+        for channel_link in REQUIRED_CHANNELS.values():
+            channel_username = channel_link.split("/")[-1]
+            url = f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember?chat_id=@{channel_username}&user_id={user_id}"
+            r = requests.get(url).json()
+            status = r.get("result", {}).get("status", "left")
+            if status not in ["member", "administrator", "creator"]:
+                return False
+        return True
+    except Exception as e:
+        print(f"Ошибка проверки подписки: {e}")
+        return False
 
-# Команда /start
 @bot.message_handler(commands=['start'])
-def send_welcome(message):
-    if message.chat.type != "private":
-        return
-    user_id = message.from_user.id
-    user_data[user_id] = {}
+def handle_start(message):
+    try:
+        if message.chat.type != "private":
+            return
 
-    markup = types.InlineKeyboardMarkup()
-    markup.add(
-        types.InlineKeyboardButton("Oxide", callback_data="game_oxide"),
-        types.InlineKeyboardButton("Standoff 2", callback_data="game_standoff")
-    )
+        register_user(message.from_user.id)
+        if message.from_user.id not in user_data:
+            user_data[message.from_user.id] = {}  # даже если он уже есть
 
-    bot.send_message(
-        message.chat.id,
-        "🎮 *Выбери нужную игру:*",
-        parse_mode="Markdown",
-        reply_markup=markup
-    )
+        markup = types.InlineKeyboardMarkup()
+        markup.add(
+            types.InlineKeyboardButton("Oxide", callback_data="game_oxide"),
+            types.InlineKeyboardButton("Standoff 2", callback_data="game_standoff")
+        )
 
-# Выбор игры
+        bot.send_message(
+            message.chat.id,
+            "🎮 *Выберите нужную игру:*",
+            parse_mode="Markdown",
+            reply_markup=markup
+        )
+        print(f"/start успешно обработан для {message.from_user.id}")
+    except Exception as e:
+        print(f"Ошибка в /start у пользователя {message.from_user.id}: {e}")
+        bot.send_message(message.chat.id, "❌ Произошла ошибка. Попробуйте снова позже.")
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith("game_"))
 def select_game(call):
     user_id = call.from_user.id
+    if user_id not in user_data:
+        user_data[user_id] = {}  # << ЭТО важно!
+
     game = "Oxide" if call.data == "game_oxide" else "Standoff 2"
     user_data[user_id]["game"] = game
 
@@ -98,13 +114,17 @@ def select_game(call):
         parse_mode="Markdown",
         reply_markup=markup
     )
-
-# Выбор ОС
 @bot.callback_query_handler(func=lambda call: call.data.startswith("system_"))
 def select_system(call):
-    user_id = call.from_user.id
+    user_id = call.from_user.id  # ЭТОЙ СТРОКИ НЕ ХВАТАЕТ
+
+    if user_id not in user_data:
+        bot.answer_callback_query(call.id, "Ошибка. Попробуйте заново /start.")
+        return
+
     system = "Android" if call.data == "system_android" else "iOS"
     user_data[user_id]["system"] = system
+
     game = user_data[user_id].get("game")
     apk_link = APK_LINKS.get(game, {}).get(system)
 
@@ -118,26 +138,16 @@ def select_system(call):
         return
 
     if is_subscribed(user_id):
-        save_user_id(user_id)
         send_download_menu(call, game, system, apk_link)
     else:
         send_subscription_request(call.message)
 
-# Сохраняем ID пользователя
-def save_user_id(user_id):
-    now = datetime.now()
-    try:
-        cursor.execute(
-            "INSERT INTO users (user_id, registration_time) VALUES (%s, %s) ON CONFLICT (user_id) DO NOTHING",
-            (user_id, now)
-        )
-    except Exception as e:
-        print("Ошибка при сохранении ID:", e)
-
-# Запрос подписки
 def send_subscription_request(message):
     markup = types.InlineKeyboardMarkup(row_width=3)
-    buttons = [types.InlineKeyboardButton(name, url=link) for name, link in {**NO_CHECK_CHANNEL, **REQUIRED_CHANNELS}.items()]
+    buttons = [
+        types.InlineKeyboardButton(name, url=link)
+        for name, link in {**NO_CHECK_CHANNEL, **REQUIRED_CHANNELS}.items()
+    ]
     markup.add(*buttons)
     markup.add(types.InlineKeyboardButton("✅ Проверить подписку", callback_data="check_subscription"))
 
@@ -148,7 +158,6 @@ def send_subscription_request(message):
         reply_markup=markup
     )
 
-# Проверка подписки
 @bot.callback_query_handler(func=lambda call: call.data == "check_subscription")
 def check_subscription(call):
     user_id = call.from_user.id
@@ -165,7 +174,6 @@ def check_subscription(call):
         return
 
     if is_subscribed(user_id):
-        save_user_id(user_id)
         send_download_menu(call, game, system, apk_link)
     else:
         bot.send_message(
@@ -174,15 +182,10 @@ def check_subscription(call):
             parse_mode="Markdown"
         )
 
-# Меню после подписки
 def send_download_menu(call, game, system, apk_link):
     markup = types.InlineKeyboardMarkup()
-    markup.add(
-        types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query=SHARE_TEXT),
-    )
-    markup.add(
-        types.InlineKeyboardButton("ℹ️ Об моде", callback_data="about_mod")
-    )
+    markup.add(types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query=SHARE_TEXT))
+    markup.add(types.InlineKeyboardButton("ℹ️ Об моде", callback_data="about_mod"))
 
     bot.edit_message_text(
         f"✅ *Вы успешно подписались на все каналы и прошли регистрацию!*\n\n"
@@ -194,7 +197,6 @@ def send_download_menu(call, game, system, apk_link):
         reply_markup=markup
     )
 
-# Об моде
 @bot.callback_query_handler(func=lambda call: call.data == "about_mod")
 def about_mod(call):
     markup = types.InlineKeyboardMarkup()
@@ -212,7 +214,6 @@ def about_mod(call):
         reply_markup=markup
     )
 
-# Техподдержка
 @bot.callback_query_handler(func=lambda call: call.data == "support")
 def support(call):
     bot.send_message(
@@ -221,31 +222,76 @@ def support(call):
         parse_mode="HTML"
     )
 
-# Команда /admin
-@bot.message_handler(commands=['admin'])
-def show_admin_stats(message):
-    if message.from_user.id != 1903057676:
-        bot.reply_to(message, "У вас нет доступа.")
-        return
+# ========== Админ-панель ==========
+def get_stats():
+    cursor.execute("SELECT COUNT(*) FROM users")
+    total = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM users WHERE registration_time >= NOW() - INTERVAL '24 hours'")
+    day = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM users WHERE registration_time >= NOW() - INTERVAL '48 hours'")
+    two_days = cursor.fetchone()[0]
+    return total, day, two_days
 
-    try:
-        cursor.execute("SELECT COUNT(*) FROM users")
-        total = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM users WHERE registration_time > NOW() - INTERVAL '24 HOURS'")
-        last_24 = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM users WHERE registration_time > NOW() - INTERVAL '48 HOURS'")
-        last_48 = cursor.fetchone()[0]
-    except Exception as e:
-        bot.reply_to(message, f"Ошибка БД: {e}")
-        return
-
-    stats = (
-        f"📊 Статистика:\n\n"
-        f"👥 Всего пользователей: {total}\n"
-        f"🕒 За 24 часа: {last_24}\n"
-        f"🕒 За 48 часов: {last_48}"
+def admin_menu():
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton("📊 Статистика", callback_data="admin_stats"),
+        types.InlineKeyboardButton("📩 Рассылка", callback_data="admin_broadcast")
     )
-    bot.send_message(message.chat.id, stats)
+    return markup
+
+@bot.message_handler(commands=['admin'])
+def handle_admin(message):
+    if message.from_user.id != ADMIN_ID:
+        return bot.reply_to(message, "❌ У вас нет доступа.")
+    bot.send_message(message.chat.id, "🛠 Админ-панель:", reply_markup=admin_menu())
+
+@bot.callback_query_handler(func=lambda c: c.data == "admin_stats")
+def stats_handler(call):
+    total, day, two_days = get_stats()
+    text = (
+        "📊 <b>Статистика:</b>\n\n"
+        f"👥 Всего пользователей: <b>{total}</b>\n"
+        f"🕒 За 24 часа: <b>{day}</b>\n"
+        f"🕒 За 48 часов: <b>{two_days}</b>"
+    )
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, parse_mode="HTML", reply_markup=admin_menu())
+
+broadcast_cache = {}
+
+@bot.callback_query_handler(func=lambda c: c.data == "admin_broadcast")
+def ask_broadcast(call):
+    bot.send_message(call.from_user.id, "✏️ Отправьте сообщение, которое хотите разослать всем пользователям.")
+    broadcast_cache[call.from_user.id] = "wait_message"
+
+@bot.message_handler(func=lambda m: broadcast_cache.get(m.from_user.id) == "wait_message")
+def confirm_broadcast(message):
+    broadcast_cache[message.from_user.id] = message
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("✅ Да", callback_data="broadcast_confirm"))
+    markup.add(types.InlineKeyboardButton("❌ Нет", callback_data="broadcast_cancel"))
+    bot.send_message(message.chat.id, "Вы точно хотите отправить это сообщение всем?", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("broadcast_"))
+def do_broadcast(call):
+    if call.data == "broadcast_confirm":
+        msg = broadcast_cache.get(call.from_user.id)
+        if isinstance(msg, telebot.types.Message):
+            cursor.execute("SELECT user_id FROM users")
+            user_ids = cursor.fetchall()
+            sent = 0
+            failed = 0
+            for (uid,) in user_ids:
+                try:
+                    bot.copy_message(uid, msg.chat.id, msg.message_id)
+                    sent += 1
+                except:
+                    failed += 1
+            bot.send_message(call.from_user.id, f"📬 Рассылка завершена.\nОтправлено: {sent}\nНе доставлено: {failed}")
+        broadcast_cache.pop(call.from_user.id, None)
+    else:
+        bot.send_message(call.from_user.id, "❌ Рассылка отменена.")
+        broadcast_cache.pop(call.from_user.id, None)
 
 # Неизвестные команды
 @bot.message_handler(func=lambda msg: msg.chat.type == "private")
@@ -259,4 +305,3 @@ def unknown_command(msg):
 if __name__ == "__main__":
     print("Бот запущен.")
     bot.infinity_polling()
-    
