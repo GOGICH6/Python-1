@@ -267,12 +267,14 @@ def check_subscription(call):
     if is_subscribed(user_id):
         send_download_menu(call, game, system, apk_link)
     else:
-        bot.send_message(
-            call.message.chat.id,
-            "❌ *Вы ещё не подписались на все каналы!* Подпишитесь и нажмите \"✅ Проверить подписку\" снова.",
-            parse_mode="Markdown"
-        )
-        def send_download_menu(call, game, system, apk_link):
+    bot.send_message(
+        call.message.chat.id,
+        "❌ *Вы ещё не подписались на все каналы!* Подпишитесь и нажмите \"✅ Проверить подписку\" снова.",
+        parse_mode="Markdown"
+    )
+
+
+def send_download_menu(call, game, system, apk_link):  # <-- теперь всё ок
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query=SHARE_TEXT))
     markup.add(types.InlineKeyboardButton("ℹ️ Об моде", callback_data="about_mod"))
@@ -286,7 +288,6 @@ def check_subscription(call):
         parse_mode="Markdown",
         reply_markup=markup
     )
-
 @bot.callback_query_handler(func=lambda call: call.data == "about_mod")
 def about_mod(call):
     game = user_data.get(call.from_user.id, {}).get("game", "мода")
