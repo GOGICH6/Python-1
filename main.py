@@ -234,12 +234,14 @@ def select_system(call):
         send_subscription_request(call.message)
 
 def send_subscription_request(message):
-    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup = types.InlineKeyboardMarkup(row_width=3)  # 3 кнопки в ряд
+
     buttons = [
         types.InlineKeyboardButton(name, url=link)
         for name, link in {**NO_CHECK_CHANNEL, **REQUIRED_CHANNELS}.items()
     ]
-    markup.add(*buttons)
+    markup.add(*buttons)  # добавляет все в одну строку
+
     markup.add(types.InlineKeyboardButton("✅ Проверить подписку", callback_data="check_subscription"))
 
     bot.send_message(
