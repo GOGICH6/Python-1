@@ -206,7 +206,7 @@ def select_game(call):
         parse_mode="Markdown",
         reply_markup=markup
     )
-    @bot.callback_query_handler(func=lambda call: call.data.startswith("system_"))
+@bot.callback_query_handler(func=lambda call: call.data.startswith("system_"))
 def select_system(call):
     user_id = call.from_user.id
 
@@ -221,12 +221,12 @@ def select_system(call):
 
     if not apk_link:
         bot.edit_message_text(
-            "❌ *«Не удалось найти файл. Вероятно, обновление ещё в процессе. Загляните позже!»*",
+            "❌ *Не удалось найти файл. Вероятно, обновление ещё в процессе. Загляните позже!*",
             call.message.chat.id,
             call.message.message_id,
             parse_mode="Markdown"
         )
-        return
+        return  # <-- не забудь return после edit_message_text
 
     if is_subscribed(user_id):
         send_download_menu(call, game, system, apk_link)
