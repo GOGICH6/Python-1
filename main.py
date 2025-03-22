@@ -362,7 +362,7 @@ def confirm_broadcast(message):
     markup.add(types.InlineKeyboardButton("✅ Да", callback_data="broadcast_confirm"))
     markup.add(types.InlineKeyboardButton("❌ Нет", callback_data="broadcast_cancel"))
     bot.send_message(message.chat.id, "Вы точно хотите отправить это сообщение всем?", reply_markup=markup)
-    @bot.callback_query_handler(func=lambda c: c.data.startswith("broadcast_"))
+@bot.callback_query_handler(func=lambda c: c.data.startswith("broadcast_"))
 def do_broadcast(call):
     ensure_connection()
     if call.data == "broadcast_confirm":
