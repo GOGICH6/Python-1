@@ -61,27 +61,30 @@ def is_subscribed(user_id):
 
 # Команда /start
 @bot.message_handler(commands=['start'])
-def send_welcome(message):
-    if message.chat.type != "private":
-        return
+def handle_start(message):
+    try:
+        if message.chat.type != "private":
+            return
 
-    user_id = message.from_user.id
-    user_data[user_id] = {}
+        register_user(message.from_user.id)
 
-    cursor.execute("INSERT INTO users (user_id) VALUES (%s) ON CONFLICT DO NOTHING", (user_id,))
+        markup = types.InlineKeyboardMarkup()
+        markup.add(
+            types.InlineKeyboardButton("Oxide", callback_data="game_oxide"),
+            types.InlineKeyboardButton("Standoff 2", callback_data="game_standoff")
+        )
 
-    markup = types.InlineKeyboardMarkup()
-    markup.add(
-        types.InlineKeyboardButton("Oxide", callback_data="game_oxide"),
-        types.InlineKeyboardButton("Standoff 2", callback_data="game_standoff")
-    )
+        bot.send_message(
+            message.chat.id,
+            "🎮 *Выберите нужную игру:*",
+            parse_mode="Markdown",
+            reply_markup=markup
+        )
+        print(f"/start успешно обработан для {message.from_user.id}")
 
-    bot.send_message(
-        message.chat.id,
-        "🎮 *Выбери нужную игру:*",
-        parse_mode="Markdown",
-        reply_markup=markup
-    )
+    except Exception as e:
+        print(f"Ошибка в /start у пользователя {message.from_user.id}: {e}")
+        bot.send_message(message.chat.id, "❌ Произошла ошибка. Попробуйте снова позже.")
 
 # Выбор игры
 @bot.callback_query_handler(func=lambda call: call.data.startswith("game_"))
