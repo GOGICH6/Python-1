@@ -114,9 +114,9 @@ def select_game(call):
         parse_mode="Markdown",
         reply_markup=markup
     )
-    @bot.callback_query_handler(func=lambda call: call.data.startswith("system_"))
+@bot.callback_query_handler(func=lambda call: 
+call.data.startswith("system_"))
 def select_system(call):
-    user_id = call.from_user.id
     if user_id not in user_data:
         bot.answer_callback_query(call.id, "Ошибка. Попробуйте заново /start.")
         return
