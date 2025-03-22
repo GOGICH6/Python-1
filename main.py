@@ -492,3 +492,7 @@ def games_del_finish(msg):
         bot.send_message(msg.chat.id, "❌ Ошибка при удалении игры.")
         print("games_del_finish:", e)
     game_stage.pop(msg.from_user.id, None)
+
+if __name__ == "__main__":
+    print("✅ Бот запущен")
+    bot.infinity_polling()
