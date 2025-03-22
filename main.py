@@ -56,7 +56,7 @@ APK_LINKS = {
     }
 }
 
-SHARE_TEXT = "Рекомендую @CheatUper_Bot в нем лучшие бесплатные читы на мобильные игры ❤️"
+SHARE_TEXT = "- в нём лучшие бесплатные читы на мобильные игры ❤️"
 user_data = {}
 
 def is_subscribed(user_id):
@@ -237,7 +237,7 @@ def send_download_menu(call, game, system, apk_link):
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton(
         "📤 Отправить другу",
-        switch_inline_query="Рекомендую @CheatUper_Bot — в нём лучшие бесплатные читы на мобильные игры ❤️"
+        switch_inline_query="- в нём лучшие бесплатные читы на мобильные игры ❤️"
     ))
     markup.add(types.InlineKeyboardButton("ℹ️ Об моде", callback_data="about_mod"))
 
