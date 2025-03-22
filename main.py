@@ -57,7 +57,7 @@ def is_subscribed(user_id):
             channel_username = channel_link.split("/")[-1]
             url = f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember?chat_id=@{channel_username}&user_id={user_id}"
             r = requests.get(url).json()
-            status = r.get("result", {}).get("status")
+            status = r.get("result", {}).get("status", "left")
             if status not in ["member", "administrator", "creator"]:
                 return False
         return True
@@ -73,7 +73,7 @@ def handle_start(message):
 
         register_user(message.from_user.id)
         if message.from_user.id not in user_data:
-            user_data[message.from_user.id] = {}
+            user_data[message.from_user.id] = {}  # даже если он уже есть
 
         markup = types.InlineKeyboardMarkup()
         markup.add(
@@ -96,7 +96,7 @@ def handle_start(message):
 def select_game(call):
     user_id = call.from_user.id
     if user_id not in user_data:
-        user_data[user_id] = {}
+        user_data[user_id] = {}  # << ЭТО важно!
 
     game = "Oxide" if call.data == "game_oxide" else "Standoff 2"
     user_data[user_id]["game"] = game
