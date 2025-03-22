@@ -31,18 +31,12 @@ CREATE TABLE IF NOT EXISTS users (
 def register_user(user_id):
     cursor.execute("INSERT INTO users (user_id) VALUES (%s) ON CONFLICT DO NOTHING", (user_id,))
 
-# Каналы, на которые НЕ нужно проверять подписку
-NO_CHECK_CHANNEL = {
-    "1 канал": "https://t.me/+gQzXZwSO5cliNGJi"
-}
-
-# Каналы, на которые нужно проверять подписку
+NO_CHECK_CHANNEL = {"1 канал": "https://t.me/+gQzXZwSO5cliNGJi"}
 REQUIRED_CHANNELS = {
     "2 канал": "https://t.me/ChatByOxide",
     "3 канал": "https://t.me/Oxide_Vzlom"
 }
 
-# Ссылки на APK по играм/платформам
 APK_LINKS = {
     "Oxide": {
         "Android": "https://t.me/+dxcSK08NRmxjNWRi",
@@ -62,16 +56,13 @@ APK_LINKS = {
     }
 }
 
-SHARE_TEXT = "Рекомендую @CheatUper_Bot в нем лучшие бесплатные читы на мобильные игры ❤️"
+SHARE_TEXT = "- в нём лучшие бесплатные читы на мобильные игры ❤️"
 user_data = {}
 
 def is_subscribed(user_id):
-    """
-    Проверяем, что пользователь подписан на все каналы из REQUIRED_CHANNELS.
-    """
     try:
         for channel_link in REQUIRED_CHANNELS.values():
-            username = channel_link.split("/")[-1]  # например, Oxide_Vzlom
+            username = channel_link.split("/")[-1]
             url = f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember?chat_id=@{username}&user_id={user_id}"
             r = requests.get(url).json()
             status = r.get("result", {}).get("status", "left")
@@ -86,10 +77,8 @@ def is_subscribed(user_id):
 def handle_start(message):
     try:
         ensure_connection()
-        # Если команда /start в группе, игнорируем (на ваше усмотрение).
         if message.chat.type != "private":
             return
-
         register_user(message.from_user.id)
         if message.from_user.id not in user_data:
             user_data[message.from_user.id] = {}
@@ -126,13 +115,13 @@ def select_game(call):
         bot.send_message(call.message.chat.id, "Чтобы скачать любую другую игру, перейдите в канал и нажмите «Установить»")
         return
 
-    game_map = {
+    game = {
         "game_oxide": "Oxide",
         "game_standoff": "Standoff 2",
         "game_blackrussia": "Black Russia",
         "game_bsdbrawl": "BSD Brawl"
-    }
-    game = game_map.get(call.data)
+    }.get(call.data)
+
     user_data[user_id]["game"] = game
 
     markup = types.InlineKeyboardMarkup()
@@ -149,6 +138,74 @@ def select_game(call):
         reply_markup=markup
     )
 
+    try:
+        ensure_connection()
+        if message.chat.type != "private":
+            return
+
+        register_user(message.from_user.id)
+
+        if message.from_user.id not in user_data:
+            user_data[message.from_user.id] = {}
+
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        markup.add(
+            types.InlineKeyboardButton("Oxide", callback_data="game_oxide"),
+            types.InlineKeyboardButton("Standoff 2", callback_data="game_standoff"),
+            types.InlineKeyboardButton("Black Russia", callback_data="game_blackrussia"),
+            types.InlineKeyboardButton("BSD Brawl", callback_data="game_bsdbrawl"),
+        )
+        markup.add(types.InlineKeyboardButton("🎮 Ещё", callback_data="game_other"))
+
+        bot.send_message(
+            message.chat.id,
+            "🎮 *Выберите нужную игру:*",
+            parse_mode="Markdown",
+            reply_markup=markup
+        )
+    except Exception as e:
+        print(f"Ошибка в /start: {e}")
+        bot.send_message(message.chat.id, "❌ Произошла ошибка. Попробуйте снова позже.")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("game_"))
+def select_game(call):
+    user_id = call.from_user.id
+
+    if user_id not in user_data:
+        user_data[user_id] = {}
+
+    code = call.data.replace("game_", "")
+
+    if code == "other":
+        return bot.edit_message_text(
+            "🎮 Чтобы скачать любую другую игру, перейдите в канал и нажмите «Установить»",
+            call.message.chat.id,
+            call.message.message_id
+        )
+
+    game_names = {
+        "oxide": "Oxide",
+        "standoff": "Standoff 2",
+        "blackrussia": "Black Russia",
+        "bsdbrawl": "BSD Brawl"
+    }
+
+    game = game_names.get(code)
+    user_data[user_id]["game"] = game
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton("📱 Android", callback_data="system_android"),
+        types.InlineKeyboardButton("🍏 iOS", callback_data="system_ios")
+    )
+
+    bot.edit_message_text(
+        "🔹 *Выберите вашу систему:*",
+        call.message.chat.id,
+        call.message.message_id,
+        parse_mode="Markdown",
+        reply_markup=markup
+    )
 @bot.callback_query_handler(func=lambda call: call.data.startswith("system_"))
 def select_system(call):
     user_id = call.from_user.id
@@ -169,20 +226,14 @@ def select_system(call):
             call.message.message_id,
             parse_mode="Markdown"
         )
-        return
+        return  # <-- не забудь return после edit_message_text
 
-    # Проверяем подписку
     if is_subscribed(user_id):
         send_download_menu(call, game, system, apk_link)
     else:
-        # Предлагаем подписаться
         send_subscription_request(call.message)
 
 def send_subscription_request(message):
-    """
-    Отправляет пользователю сообщение со списком каналов, на которые надо подписаться,
-    и кнопкой "Проверить подписку".
-    """
     markup = types.InlineKeyboardMarkup(row_width=2)
     buttons = [
         types.InlineKeyboardButton(name, url=link)
@@ -200,9 +251,6 @@ def send_subscription_request(message):
 
 @bot.callback_query_handler(func=lambda call: call.data == "check_subscription")
 def check_subscription(call):
-    """
-    ЕДИНСТВЕННЫЙ хэндлер на callback_data == "check_subscription".
-    """
     user_id = call.from_user.id
     game = user_data.get(user_id, {}).get("game")
     system = user_data.get(user_id, {}).get("system")
@@ -225,11 +273,22 @@ def check_subscription(call):
             parse_mode="Markdown"
         )
 
+def send_download_menu(call, game, system, apk_link):  # <-- теперь всё ок
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query=SHARE_TEXT))
+    markup.add(types.InlineKeyboardButton("ℹ️ Об моде", callback_data="about_mod"))
+
+    bot.edit_message_text(
+        f"✅ *Вы успешно подписались на все каналы и прошли регистрацию!*\n\n"
+        f"🔗 *Ссылка на скачивание:* [👉 Нажмите здесь]({apk_link})\n\n"
+        f"⚠ *Важно!* Не отписывайтесь от каналов, иначе бот может посчитать вас мошенником и *добавить в ЧС во всех каналах!*",
+        call.message.chat.id,
+        call.message.message_id,
+        parse_mode="Markdown",
+        reply_markup=markup
+    )
 @bot.callback_query_handler(func=lambda call: call.data == "about_mod")
 def about_mod(call):
-    """
-    Пример: показать информацию о моде. Пока что выводит лишь заглушку.
-    """
     game = user_data.get(call.from_user.id, {}).get("game", "мода")
 
     markup = types.InlineKeyboardMarkup()
@@ -246,28 +305,6 @@ def about_mod(call):
         reply_markup=markup
     )
 
-def send_download_menu(call, game, system, apk_link):
-    """
-    Вызывается, когда пользователь уже подтвердил подписку.
-    Показывает ссылку на скачивание и прочую информацию.
-    """
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton(
-        "📤 Отправить другу",
-        switch_inline_query="Рекомендую @CheatUper_Bot — в нём лучшие бесплатные читы на мобильные игры ❤️"
-    ))
-    markup.add(types.InlineKeyboardButton("ℹ️ Об моде", callback_data="about_mod"))
-
-    bot.edit_message_text(
-        f"✅ *Вы успешно подписались на все каналы и прошли регистрацию!*\n\n"
-        f"🔗 *Ссылка на скачивание:* [👉 Нажмите здесь]({apk_link})\n\n"
-        f"⚠ *Важно!* Не отписывайтесь от каналов, иначе бот может посчитать вас мошенником и *добавить в ЧС во всех каналах!*",
-        chat_id=call.message.chat.id,
-        message_id=call.message.message_id,
-        parse_mode="Markdown",
-        reply_markup=markup
-    )
-
 @bot.callback_query_handler(func=lambda call: call.data == "support")
 def support(call):
     bot.send_message(
@@ -275,9 +312,7 @@ def support(call):
         "Если у вас возникли вопросы или проблемы, вы можете обратиться в техподдержку: <b>@Oxide_Vzlom_bot</b>",
         parse_mode="HTML"
     )
-
-# ==================== Админ-панель ====================
-
+    # ========== Админ-панель ==========
 def get_stats():
     ensure_connection()
     cursor.execute("SELECT COUNT(*) FROM users")
@@ -327,7 +362,6 @@ def confirm_broadcast(message):
     markup.add(types.InlineKeyboardButton("✅ Да", callback_data="broadcast_confirm"))
     markup.add(types.InlineKeyboardButton("❌ Нет", callback_data="broadcast_cancel"))
     bot.send_message(message.chat.id, "Вы точно хотите отправить это сообщение всем?", reply_markup=markup)
-
 @bot.callback_query_handler(func=lambda c: c.data.startswith("broadcast_"))
 def do_broadcast(call):
     ensure_connection()
@@ -359,6 +393,7 @@ def unknown_command(msg):
         parse_mode="Markdown"
     )
 
+# Запуск бота
 if __name__ == "__main__":
     print("✅ Бот запущен.")
     bot.infinity_polling()
