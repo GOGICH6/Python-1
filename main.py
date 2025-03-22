@@ -47,7 +47,7 @@ APK_LINKS = {
         "iOS": None
     },
     "Black Russia": {
-        "Android": https://t.me/+_mYvPRVrZL9jZTZi,
+        "Android": "https://t.me/+_mYvPRVrZL9jZTZi",
         "iOS": None
     },
     "BSD Brawl": {
