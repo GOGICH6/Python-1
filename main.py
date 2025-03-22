@@ -56,7 +56,7 @@ APK_LINKS = {
     }
 }
 
-SHARE_TEXT = "- в нём лучшие бесплатные читы на мобильные игры ❤️"
+SHARE_TEXT = "Рекомендую @CheatUper_Bot в нем лучшие бесплатные читы на мобильные игры ❤️"
 user_data = {}
 
 def is_subscribed(user_id):
@@ -80,9 +80,20 @@ def handle_start(message):
         if message.chat.type != "private":
             return
         register_user(message.from_user.id)
+
+        # Проверка на параметр (реферальный код)
+        args = message.text.split()
+        ref_code = args[1] if len(args) > 1 else None
+
         if message.from_user.id not in user_data:
             user_data[message.from_user.id] = {}
 
+        if ref_code and "custom_games" in user_data and ref_code in user_data["custom_games"]:
+            user_data[message.from_user.id]["custom_game"] = ref_code
+            send_subscription_request(message)
+            return
+
+        # Стандартное меню
         markup = types.InlineKeyboardMarkup()
         markup.add(
             types.InlineKeyboardButton("Oxide", callback_data="game_oxide"),
@@ -234,11 +245,28 @@ def about_mod(call):
     )
 
 def send_download_menu(call, game, system, apk_link):
+    user_id = call.from_user.id
+    ref_code = user_data.get(user_id, {}).get("custom_game")
+    
+    if ref_code and "custom_games" in user_data and ref_code in user_data["custom_games"]:
+        game_info = user_data["custom_games"][ref_code]
+        link = game_info["link"]
+
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query=SHARE_TEXT))
+        markup.add(types.InlineKeyboardButton("ℹ️ Об моде", callback_data="about_mod"))
+
+        bot.send_message(
+            call.message.chat.id,
+            f"✅ *Вы подписаны!*\n\n🔗 [👉 Нажмите для перехода]({link})",
+            parse_mode="Markdown",
+            reply_markup=markup
+        )
+        return
+
+    # Стандартный блок если кастомной игры нет
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton(
-        "📤 Отправить другу",
-        switch_inline_query="- в нём лучшие бесплатные читы на мобильные игры ❤️"
-    ))
+    markup.add(types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query=SHARE_TEXT))
     markup.add(types.InlineKeyboardButton("ℹ️ Об моде", callback_data="about_mod"))
 
     bot.edit_message_text(
@@ -250,6 +278,7 @@ def send_download_menu(call, game, system, apk_link):
         parse_mode="Markdown",
         reply_markup=markup
     )
+    return
 @bot.callback_query_handler(func=lambda call: call.data == "support")
 def support(call):
     bot.send_message(
@@ -273,7 +302,8 @@ def admin_menu():
     markup = types.InlineKeyboardMarkup()
     markup.add(
         types.InlineKeyboardButton("📊 Статистика", callback_data="admin_stats"),
-        types.InlineKeyboardButton("📩 Рассылка", callback_data="admin_broadcast")
+        types.InlineKeyboardButton("📩 Рассылка", callback_data="admin_broadcast"),
+        types.InlineKeyboardButton("🎮 Игры (Ещё)", callback_data="admin_games")
     )
     return markup
 
@@ -329,6 +359,38 @@ def do_broadcast(call):
     else:
         bot.send_message(call.from_user.id, "❌ Рассылка отменена.")
         broadcast_cache.pop(call.from_user.id, None)
+
+# === Добавление игр в раздел "Ещё" ===
+@bot.callback_query_handler(func=lambda c: c.data == "admin_games")
+def handle_admin_games(call):
+    bot.send_message(call.from_user.id, "🕹 Введите название новой игры:")
+    bot.register_next_step_handler_by_chat_id(call.from_user.id, get_game_name)
+
+def get_game_name(message):
+    game_name = message.text.strip()
+    if not game_name:
+        bot.send_message(message.chat.id, "❌ Название не может быть пустым.")
+        return
+
+    bot.send_message(message.chat.id, "📎 Отправьте ссылку на файл или канал (например, https://t.me/...)")
+    bot.register_next_step_handler_by_chat_id(message.chat.id, lambda m: save_game_info(m, game_name))
+
+def save_game_info(message, game_name):
+    link = message.text.strip()
+    if not link.startswith("http"):
+        bot.send_message(message.chat.id, "❌ Неверная ссылка.")
+        return
+
+    # Генерация уникального параметра для ссылки (например, через ID)
+    ref_code = f"ref_{int(datetime.now().timestamp())}"
+    full_link = f"https://t.me/{bot.get_me().username}?start={ref_code}"
+
+    # Сохраняем в user_data — в реальном проекте лучше в БД
+    if "custom_games" not in user_data:
+        user_data["custom_games"] = {}
+    user_data["custom_games"][ref_code] = {"title": game_name, "link": link}
+
+    bot.send_message(message.chat.id, f"✅ Игра добавлена!\n\nНазвание: {game_name}\nСсылка: {full_link}")
 
 # Обработка неизвестных сообщений
 @bot.message_handler(func=lambda msg: msg.chat.type == "private")
