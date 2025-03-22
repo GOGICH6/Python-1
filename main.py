@@ -15,13 +15,16 @@ conn = psycopg2.connect(DB_URL)
 conn.autocommit = True
 cursor = conn.cursor()
 
-# Создание таблицы пользователей
+# Таблица пользователей
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
     user_id BIGINT PRIMARY KEY,
     registration_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 """)
+
+def register_user(user_id):
+    cursor.execute("INSERT INTO users (user_id) VALUES (%s) ON CONFLICT DO NOTHING", (user_id,))
 
 # Каналы
 NO_CHECK_CHANNEL = {"1 канал": "https://t.me/+gQzXZwSO5cliNGJi"}
@@ -30,7 +33,7 @@ REQUIRED_CHANNELS = {
     "3 канал": "https://t.me/Oxide_Vzlom"
 }
 
-# Ссылки на загрузку
+# Ссылки
 APK_LINKS = {
     "Oxide": {
         "Android": "https://t.me/+dxcSK08NRmxjNWRi",
@@ -42,24 +45,26 @@ APK_LINKS = {
     }
 }
 
-# Текст для отправки другу
+# Поделиться
 SHARE_TEXT = "– мой любимый бесплатный чит на Oxide! ❤️"
 
-# Хранилище выбора пользователя
+# Словарь выбора
 user_data = {}
 
-# Проверка подписки
 def is_subscribed(user_id):
-    for channel_link in REQUIRED_CHANNELS.values():
-        channel_username = channel_link.split("/")[-1]
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember?chat_id=@{channel_username}&user_id={user_id}"
-        r = requests.get(url).json()
-        status = r.get("result", {}).get("status")
-        if status not in ["member", "administrator", "creator"]:
-            return False
-    return True
+    try:
+        for channel_link in REQUIRED_CHANNELS.values():
+            channel_username = channel_link.split("/")[-1]
+            url = f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember?chat_id=@{channel_username}&user_id={user_id}"
+            r = requests.get(url).json()
+            status = r.get("result", {}).get("status")
+            if status not in ["member", "administrator", "creator"]:
+                return False
+        return True
+    except Exception as e:
+        print(f"Ошибка проверки подписки: {e}")
+        return False
 
-# Команда /start
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     try:
@@ -67,6 +72,8 @@ def handle_start(message):
             return
 
         register_user(message.from_user.id)
+        if message.from_user.id not in user_data:
+            user_data[message.from_user.id] = {}
 
         markup = types.InlineKeyboardMarkup()
         markup.add(
@@ -81,15 +88,16 @@ def handle_start(message):
             reply_markup=markup
         )
         print(f"/start успешно обработан для {message.from_user.id}")
-
     except Exception as e:
         print(f"Ошибка в /start у пользователя {message.from_user.id}: {e}")
         bot.send_message(message.chat.id, "❌ Произошла ошибка. Попробуйте снова позже.")
 
-# Выбор игры
 @bot.callback_query_handler(func=lambda call: call.data.startswith("game_"))
 def select_game(call):
     user_id = call.from_user.id
+    if user_id not in user_data:
+        user_data[user_id] = {}
+
     game = "Oxide" if call.data == "game_oxide" else "Standoff 2"
     user_data[user_id]["game"] = game
 
@@ -106,11 +114,13 @@ def select_game(call):
         parse_mode="Markdown",
         reply_markup=markup
     )
-
-# Выбор ОС
-@bot.callback_query_handler(func=lambda call: call.data.startswith("system_"))
+    @bot.callback_query_handler(func=lambda call: call.data.startswith("system_"))
 def select_system(call):
     user_id = call.from_user.id
+    if user_id not in user_data:
+        bot.answer_callback_query(call.id, "Ошибка. Попробуйте заново /start.")
+        return
+
     system = "Android" if call.data == "system_android" else "iOS"
     user_data[user_id]["system"] = system
 
@@ -130,7 +140,7 @@ def select_system(call):
         send_download_menu(call, game, system, apk_link)
     else:
         send_subscription_request(call.message)
-        # Запрос подписки
+
 def send_subscription_request(message):
     markup = types.InlineKeyboardMarkup(row_width=3)
     buttons = [
@@ -147,7 +157,6 @@ def send_subscription_request(message):
         reply_markup=markup
     )
 
-# Проверка подписки
 @bot.callback_query_handler(func=lambda call: call.data == "check_subscription")
 def check_subscription(call):
     user_id = call.from_user.id
@@ -172,7 +181,6 @@ def check_subscription(call):
             parse_mode="Markdown"
         )
 
-# Меню после успешной подписки
 def send_download_menu(call, game, system, apk_link):
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query=SHARE_TEXT))
@@ -188,7 +196,6 @@ def send_download_menu(call, game, system, apk_link):
         reply_markup=markup
     )
 
-# Об моде
 @bot.callback_query_handler(func=lambda call: call.data == "about_mod")
 def about_mod(call):
     markup = types.InlineKeyboardMarkup()
@@ -206,7 +213,6 @@ def about_mod(call):
         reply_markup=markup
     )
 
-# Техподдержка
 @bot.callback_query_handler(func=lambda call: call.data == "support")
 def support(call):
     bot.send_message(
@@ -215,10 +221,7 @@ def support(call):
         parse_mode="HTML"
     )
 
-# ============================
-# Админ-панель
-# ============================
-
+# ========== Админ-панель ==========
 def get_stats():
     cursor.execute("SELECT COUNT(*) FROM users")
     total = cursor.fetchone()[0]
@@ -301,4 +304,3 @@ def unknown_command(msg):
 if __name__ == "__main__":
     print("Бот запущен.")
     bot.infinity_polling()
-    
