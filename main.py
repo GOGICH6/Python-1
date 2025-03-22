@@ -216,13 +216,12 @@ def select_system(call):
 
     system = "Android" if call.data == "system_android" else "iOS"
     user_data[user_id]["system"] = system
-
     game = user_data[user_id]["game"]
     apk_link = APK_LINKS.get(game, {}).get(system)
 
     if not apk_link:
         bot.edit_message_text(
-            "❌ *Извините, но APK для данной игры и платформы пока недоступен.*",
+            "❌ *«Не удалось найти файл. Вероятно, обновление ещё в процессе. Загляните позже!»*",
             call.message.chat.id,
             call.message.message_id,
             parse_mode="Markdown"
