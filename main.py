@@ -233,24 +233,7 @@ def about_mod(call):
         reply_markup=markup
     )
 
-def send_download_menu(call, game, system, apk_link):
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton(
-types.InlineKeyboardButton(
-    "📤 Отправить другу",
-    url="https://t.me/share/url?url=&text=Рекомендую @CheatUper_Bot — в нём лучшие бесплатные читы на мобильные игры ❤️"
-)
-    markup.add(types.InlineKeyboardButton("ℹ️ Об моде", callback_data="about_mod"))
 
-    bot.edit_message_text(
-        f"✅ *Вы успешно подписались на все каналы и прошли регистрацию!*\n\n"
-        f"🔗 *Ссылка на скачивание:* [👉 Нажмите здесь]({apk_link})\n\n"
-        f"⚠ *Важно!* Не отписывайтесь от каналов, иначе бот может посчитать вас мошенником и *добавить в ЧС во всех каналах!*",
-        chat_id=call.message.chat.id,
-        message_id=call.message.message_id,
-        parse_mode="Markdown",
-        reply_markup=markup
-    )
 @bot.callback_query_handler(func=lambda call: call.data == "support")
 def support(call):
     bot.send_message(
@@ -259,7 +242,25 @@ def support(call):
         parse_mode="HTML"
     )
 
-# ========== Админ-панель ==========
+# ==========def send_download_menu(call, game, system, apk_link):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton(
+            "📤 Отправить другу",
+            url="https://t.me/share/url?url=&text=Рекомендую @CheatUper_Bot — в нём лучшие бесплатные читы на мобильные игры ❤️"
+        )
+    )
+    markup.add(types.InlineKeyboardButton("ℹ️ Об моде", callback_data="about_mod"))
+
+    bot.edit_message_text(
+        f"✅ *Вы успешно подписались на все каналы и прошли регистрацию!*\n\n"
+        f"🔗 *Ссылка на скачивание:* [👉 Нажмите здесь]({apk_link})\n\n"
+        f"⚠ *Важно!* Не отписывайтесь от каналов, иначе бот может посчитать вас мошенником и *добавить в ЧС во всех каналах!*",
+        call.message.chat.id,
+        call.message.message_id,
+        parse_mode="Markdown",
+        reply_markup=markup
+    ) Админ-панель ==========
 def get_stats():
     ensure_connection()
     cursor.execute("SELECT COUNT(*) FROM users")
