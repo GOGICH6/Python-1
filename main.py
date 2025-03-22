@@ -56,7 +56,7 @@ APK_LINKS = {
     }
 }
 
-SHARE_TEXT = "– мой любимый бесплатный чит на Oxide! ❤️"
+SHARE_TEXT = "Рекомендую @CheatUper_Bot в нем лучшие бесплатные читы на мобильные игры ❤️"
 user_data = {}
 
 def is_subscribed(user_id):
@@ -213,20 +213,7 @@ def check_subscription(call):
         bot.send_message(...)
 
 
-def send_download_menu(call, game, system, apk_link):  # ← ВЫНЕСЕНА ОТДЕЛЬНО
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query=SHARE_TEXT))
-    markup.add(types.InlineKeyboardButton("ℹ️ Об моде", callback_data="about_mod"))
 
-    bot.edit_message_text(
-        f"✅ *Вы успешно подписались на все каналы и прошли регистрацию!*\n\n"
-        f"🔗 *Ссылка на скачивание:* [👉 Нажмите здесь]({apk_link})\n\n"
-        f"⚠ *Важно!* Не отписывайтесь от каналов, иначе бот может посчитать вас мошенником и *добавить в ЧС во всех каналах!*",
-        call.message.chat.id,
-        call.message.message_id,
-        parse_mode="Markdown",
-        reply_markup=markup
-    )
 
 @bot.callback_query_handler(func=lambda call: call.data == "about_mod")
 def about_mod(call):
@@ -240,7 +227,25 @@ def about_mod(call):
 
     bot.edit_message_text(
         f"ℹ️ *Информация*\n\n**Информация о моде для {game} временно отсутствует.**",
+        cadef send_download_menu(call, game, system, apk_link):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton(
+            "📤 Отправить другу",
+            switch_inline_query=SHARE_TEXT
+        )
+    )
+    markup.add(types.InlineKeyboardButton("ℹ️ Об моде", callback_data="about_mod"))
+
+    bot.edit_message_text(
+        f"✅ *Вы успешно подписались на все каналы и прошли регистрацию!*\n\n"
+        f"🔗 *Ссылка на скачивание:* [👉 Нажмите здесь]({apk_link})\n\n"
+        f"⚠ *Важно!* Не отписывайтесь от каналов, иначе бот может посчитать вас мошенником и *добавить в ЧС во всех каналах!*",
         call.message.chat.id,
+        call.message.message_id,
+        parse_mode="Markdown",
+        reply_markup=markup
+    )ll.message.chat.id,
         call.message.message_id,
         parse_mode="Markdown",
         reply_markup=markup
