@@ -92,7 +92,7 @@ def handle_start(message):
             types.InlineKeyboardButton("Black Russia", callback_data="game_blackrussia"),
             types.InlineKeyboardButton("BSD Brawl", callback_data="game_bsdbrawl")
         )
-        markup.add(types.InlineKeyboardButton("Другое", callback_data="game_other"))
+        markup.add(types.InlineKeyboardButton("Ещё", callback_data="game_other"))
 
         bot.send_message(
             message.chat.id,
@@ -111,7 +111,7 @@ def select_game(call):
 
     if call.data == "game_other":
         bot.answer_callback_query(call.id)
-        bot.send_message(call.message.chat.id, "Чтобы скачать любую другую игру, перейдите в канал и нажмите «Установить».")
+        bot.send_message(call.message.chat.id, "Чтобы скачать любую другую игру, перейдите в канал и нажмите «Установить»")
         return
 
     game = {
