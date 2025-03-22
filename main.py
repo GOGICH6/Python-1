@@ -15,6 +15,14 @@ conn = psycopg2.connect(DB_URL)
 conn.autocommit = True
 cursor = conn.cursor()
 
+# Проверка соединения с базой
+def ensure_connection():
+    global conn, cursor
+    if conn.closed != 0:
+        conn = psycopg2.connect(DB_URL)
+        conn.autocommit = True
+        cursor = conn.cursor()
+
 # Таблица пользователей
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
@@ -68,10 +76,12 @@ def is_subscribed(user_id):
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     try:
+        ensure_connection()  # <--- Добавь это!
         if message.chat.type != "private":
             return
 
         register_user(message.from_user.id)
+        
         if message.from_user.id not in user_data:
             user_data[message.from_user.id] = {}  # даже если он уже есть
 
