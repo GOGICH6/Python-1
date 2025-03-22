@@ -216,8 +216,11 @@ def confirm_broadcast(msg):
     markup.add(types.InlineKeyboardButton("✅ Да", callback_data="broadcast_confirm"))
     markup.add(types.InlineKeyboardButton("❌ Нет", callback_data="broadcast_cancel"))
     bot.send_message(msg.chat.id, "Вы точно хотите отправить это сообщение всем?", reply_markup=markup)
-    @bot.callback_query_handler(func=lambda c: c.data.startswith("broadcast_"))
+
+# ← отступ слева без пробелов!
+@bot.callback_query_handler(func=lambda c: c.data.startswith("broadcast_"))
 def do_broadcast(call):
+    ...
     if call.data == "broadcast_confirm":
         message_obj = broadcast_cache.get(call.from_user.id)
         cursor.execute("SELECT user_id FROM users")
