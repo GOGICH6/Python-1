@@ -90,7 +90,7 @@ def select_game(call):
 
     game = {
         "game_oxide": "Oxide",
-  @bot.message_handler(commands=['start'])
+@bot.message_handler(commands=['start'])
 def handle_start(message):
     try:
         ensure_connection()
