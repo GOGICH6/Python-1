@@ -236,9 +236,10 @@ def about_mod(call):
 def send_download_menu(call, game, system, apk_link):
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton(
-        "📤 Отправить другу",
-        switch_inline_query="Рекомендую @CheatUper_Bot — в нём лучшие бесплатные читы на мобильные игры ❤️"
-    ))
+types.InlineKeyboardButton(
+    "📤 Отправить другу",
+    url="https://t.me/share/url?url=&text=Рекомендую @CheatUper_Bot — в нём лучшие бесплатные читы на мобильные игры ❤️"
+)
     markup.add(types.InlineKeyboardButton("ℹ️ Об моде", callback_data="about_mod"))
 
     bot.edit_message_text(
