@@ -73,7 +73,24 @@ def is_subscribed(user_id):
         print(f"Ошибка проверки подписки: {e}")
         return False
 
-@bot.message_handler(commands=['start'])
+
+    except Exception as e:
+        print(f"Ошибка в /start у {message.from_user.id}: {e}")
+        bot.send_message(message.chat.id, "❌ Произошла ошибка. Попробуйте снова позже.")
+@bot.callback_query_handler(func=lambda call: call.data.startswith("game_"))
+def select_game(call):
+    user_id = call.from_user.id
+    if user_id not in user_data:
+        user_data[user_id] = {}
+
+    if call.data == "game_other":
+        bot.answer_callback_query(call.id)
+        bot.send_message(call.message.chat.id, "Чтобы скачать любую другую игру, перейдите в канал и нажмите «Установить»")
+        return
+
+    game = {
+        "game_oxide": "Oxide",
+  @bot.message_handler(commands=['start'])
 def handle_start(message):
     try:
         ensure_connection()
@@ -81,19 +98,45 @@ def handle_start(message):
             return
         register_user(message.from_user.id)
 
-        # Проверка на параметр (реферальный код)
+        # Обработка параметров start
         args = message.text.split()
         ref_code = args[1] if len(args) > 1 else None
 
         if message.from_user.id not in user_data:
             user_data[message.from_user.id] = {}
 
+        # Кастомные игры
         if ref_code and "custom_games" in user_data and ref_code in user_data["custom_games"]:
             user_data[message.from_user.id]["custom_game"] = ref_code
             send_subscription_request(message)
             return
 
-        # Стандартное меню
+        # Переход по ссылке на обычную игру
+        game_aliases = {
+            "game_oxide": "Oxide",
+            "game_standoff": "Standoff 2",
+            "game_blackrussia": "Black Russia",
+            "game_bsdbrawl": "BSD Brawl"
+        }
+
+        if ref_code in game_aliases:
+            user_data[message.from_user.id]["game"] = game_aliases[ref_code]
+
+            # Показываем выбор системы
+            markup = types.InlineKeyboardMarkup()
+            markup.add(
+                types.InlineKeyboardButton("📱 Android", callback_data="system_android"),
+                types.InlineKeyboardButton("🍏 iOS", callback_data="system_ios")
+            )
+            bot.send_message(
+                message.chat.id,
+                "🔹 *Выберите вашу систему:*",
+                parse_mode="Markdown",
+                reply_markup=markup
+            )
+            return
+
+        # Обычное стартовое меню
         markup = types.InlineKeyboardMarkup()
         markup.add(
             types.InlineKeyboardButton("Oxide", callback_data="game_oxide"),
@@ -113,21 +156,7 @@ def handle_start(message):
         )
     except Exception as e:
         print(f"Ошибка в /start у {message.from_user.id}: {e}")
-        bot.send_message(message.chat.id, "❌ Произошла ошибка. Попробуйте снова позже.")
-@bot.callback_query_handler(func=lambda call: call.data.startswith("game_"))
-def select_game(call):
-    user_id = call.from_user.id
-    if user_id not in user_data:
-        user_data[user_id] = {}
-
-    if call.data == "game_other":
-        bot.answer_callback_query(call.id)
-        bot.send_message(call.message.chat.id, "Чтобы скачать любую другую игру, перейдите в канал и нажмите «Установить»")
-        return
-
-    game = {
-        "game_oxide": "Oxide",
-        "game_standoff": "Standoff 2",
+        bot.send_message(message.chat.id, "❌ Произошла ошибка. Попробуйте снова позже.")      "game_standoff": "Standoff 2",
         "game_blackrussia": "Black Russia",
         "game_bsdbrawl": "BSD Brawl"
     }.get(call.data)
