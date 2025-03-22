@@ -137,8 +137,7 @@ def select_game(call):
         parse_mode="Markdown",
         reply_markup=markup
     )
-    @bot.message_handler(commands=['start'])
-def handle_start(message):
+
     try:
         ensure_connection()
         if message.chat.type != "private":
