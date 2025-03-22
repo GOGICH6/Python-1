@@ -103,7 +103,6 @@ def handle_start(message):
     except Exception as e:
         print(f"Ошибка в /start у {message.from_user.id}: {e}")
         bot.send_message(message.chat.id, "❌ Произошла ошибка. Попробуйте снова позже.")
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith("game_"))
 def select_game(call):
     user_id = call.from_user.id
@@ -138,74 +137,6 @@ def select_game(call):
         reply_markup=markup
     )
 
-    try:
-        ensure_connection()
-        if message.chat.type != "private":
-            return
-
-        register_user(message.from_user.id)
-
-        if message.from_user.id not in user_data:
-            user_data[message.from_user.id] = {}
-
-        markup = types.InlineKeyboardMarkup(row_width=2)
-        markup.add(
-            types.InlineKeyboardButton("Oxide", callback_data="game_oxide"),
-            types.InlineKeyboardButton("Standoff 2", callback_data="game_standoff"),
-            types.InlineKeyboardButton("Black Russia", callback_data="game_blackrussia"),
-            types.InlineKeyboardButton("BSD Brawl", callback_data="game_bsdbrawl"),
-        )
-        markup.add(types.InlineKeyboardButton("🎮 Другое", callback_data="game_other"))
-
-        bot.send_message(
-            message.chat.id,
-            "🎮 *Выберите нужную игру:*",
-            parse_mode="Markdown",
-            reply_markup=markup
-        )
-    except Exception as e:
-        print(f"Ошибка в /start: {e}")
-        bot.send_message(message.chat.id, "❌ Произошла ошибка. Попробуйте снова позже.")
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("game_"))
-def select_game(call):
-    user_id = call.from_user.id
-
-    if user_id not in user_data:
-        user_data[user_id] = {}
-
-    code = call.data.replace("game_", "")
-
-    if code == "other":
-        return bot.edit_message_text(
-            "🎮 Чтобы скачать любую другую игру, перейдите в канал и нажмите «Установить»",
-            call.message.chat.id,
-            call.message.message_id
-        )
-
-    game_names = {
-        "oxide": "Oxide",
-        "standoff": "Standoff 2",
-        "blackrussia": "Black Russia",
-        "bsdbrawl": "BSD Brawl"
-    }
-
-    game = game_names.get(code)
-    user_data[user_id]["game"] = game
-
-    markup = types.InlineKeyboardMarkup()
-    markup.add(
-        types.InlineKeyboardButton("📱 Android", callback_data="system_android"),
-        types.InlineKeyboardButton("🍏 iOS", callback_data="system_ios")
-    )
-
-    bot.edit_message_text(
-        "🔹 *Выберите вашу систему:*",
-        call.message.chat.id,
-        call.message.message_id,
-        parse_mode="Markdown",
-        reply_markup=markup
-    )
 @bot.callback_query_handler(func=lambda call: call.data.startswith("system_"))
 def select_system(call):
     user_id = call.from_user.id
@@ -226,7 +157,7 @@ def select_system(call):
             call.message.message_id,
             parse_mode="Markdown"
         )
-        return  # <-- не забудь return после edit_message_text
+        return
 
     if is_subscribed(user_id):
         send_download_menu(call, game, system, apk_link)
@@ -266,14 +197,23 @@ def check_subscription(call):
 
     if is_subscribed(user_id):
         send_download_menu(call, game, system, apk_link)
-else:
-    bot.send_message(  # ← обязательно 4 пробела или таб!
-        call.message.chat.id,
-        "❌ *Вы ещё не подписались на все каналы!* Подпишитесь и нажмите \"✅ Проверить подписку\" снова.",
-        parse_mode="Markdown"
-    )
+    else:
+        bot.send_message(
+            call.message.chat.id,
+            "❌ *Вы ещё не подписались на все каналы!* Подпишитесь и нажмите \"✅ Проверить подписку\" снова.",
+            parse_mode="Markdown"
+        )
+        
+@bot.callback_query_handler(func=lambda call: call.data == "check_subscription")
+def check_subscription(call):
+    ...
+    if is_subscribed(user_id):
+        send_download_menu(call, game, system, apk_link)
+    else:
+        bot.send_message(...)
 
-def send_download_menu(call, game, system, apk_link):  # <-- теперь всё ок
+
+def send_download_menu(call, game, system, apk_link):  # ← ВЫНЕСЕНА ОТДЕЛЬНО
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("📤 Отправить другу", switch_inline_query=SHARE_TEXT))
     markup.add(types.InlineKeyboardButton("ℹ️ Об моде", callback_data="about_mod"))
@@ -287,6 +227,7 @@ def send_download_menu(call, game, system, apk_link):  # <-- теперь всё
         parse_mode="Markdown",
         reply_markup=markup
     )
+
 @bot.callback_query_handler(func=lambda call: call.data == "about_mod")
 def about_mod(call):
     game = user_data.get(call.from_user.id, {}).get("game", "мода")
@@ -312,7 +253,8 @@ def support(call):
         "Если у вас возникли вопросы или проблемы, вы можете обратиться в техподдержку: <b>@Oxide_Vzlom_bot</b>",
         parse_mode="HTML"
     )
-    # ========== Админ-панель ==========
+
+# ========== Админ-панель ==========
 def get_stats():
     ensure_connection()
     cursor.execute("SELECT COUNT(*) FROM users")
@@ -349,7 +291,6 @@ def stats_handler(call):
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, parse_mode="HTML", reply_markup=admin_menu())
 
 broadcast_cache = {}
-
 @bot.callback_query_handler(func=lambda c: c.data == "admin_broadcast")
 def ask_broadcast(call):
     bot.send_message(call.from_user.id, "✏️ Отправьте сообщение, которое хотите разослать всем пользователям.")
@@ -362,7 +303,8 @@ def confirm_broadcast(message):
     markup.add(types.InlineKeyboardButton("✅ Да", callback_data="broadcast_confirm"))
     markup.add(types.InlineKeyboardButton("❌ Нет", callback_data="broadcast_cancel"))
     bot.send_message(message.chat.id, "Вы точно хотите отправить это сообщение всем?", reply_markup=markup)
-    @bot.callback_query_handler(func=lambda c: c.data.startswith("broadcast_"))
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("broadcast_"))
 def do_broadcast(call):
     ensure_connection()
     if call.data == "broadcast_confirm":
