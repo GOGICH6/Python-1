@@ -474,3 +474,21 @@ def games_add_finish(msg):
     except Exception as e:
         bot.send_message(msg.chat.id, "❌ Ошибка при добавлении игры.")
         print("games_add_finish:",
+e)
+    game_stage.pop(msg.from_user.id, None)
+
+@bot.callback_query_handler(func=lambda c: c.data == "games_delete")
+def games_del_1(call):
+    game_stage[call.from_user.id] = "deleting"
+    bot.send_message(call.from_user.id, "🗑 Введите точное название игры для удаления:")
+
+@bot.message_handler(func=lambda m: game_stage.get(m.from_user.id) == "deleting")
+def games_del_finish(msg):
+    name = msg.text
+    try:
+        cursor.execute("DELETE FROM games WHERE name = %s", (name,))
+        bot.send_message(msg.chat.id, f"✅ Игра '{name}' удалена.")
+    except Exception as e:
+        bot.send_message(msg.chat.id, "❌ Ошибка при удалении игры.")
+        print("games_del_finish:", e)
+    game_stage.pop(msg.from_user.id, None)
