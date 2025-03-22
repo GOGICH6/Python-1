@@ -266,13 +266,12 @@ def check_subscription(call):
 
     if is_subscribed(user_id):
         send_download_menu(call, game, system, apk_link)
-    else:
-    bot.send_message(
+else:
+    bot.send_message(  # ← обязательно 4 пробела или таб!
         call.message.chat.id,
         "❌ *Вы ещё не подписались на все каналы!* Подпишитесь и нажмите \"✅ Проверить подписку\" снова.",
         parse_mode="Markdown"
     )
-
 
 def send_download_menu(call, game, system, apk_link):  # <-- теперь всё ок
     markup = types.InlineKeyboardMarkup()
