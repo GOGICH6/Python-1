@@ -47,12 +47,12 @@ APK_LINKS = {
         "iOS": None
     },
     "Black Russia": {
-        "Android": "https://t.me/+example_blackrussia_android",
-        "iOS": "https://t.me/+example_blackrussia_ios"
+        "Android": None,
+        "iOS": None
     },
     "BSD Brawl": {
-        "Android": "https://t.me/+example_bsdbrawl_android",
-        "iOS": "https://t.me/+example_bsdbrawl_ios"
+        "Android": None,
+        "iOS": None
     }
 }
 
@@ -111,7 +111,7 @@ def select_game(call):
 
     if call.data == "game_other":
         bot.answer_callback_query(call.id)
-        bot.send_message(call.message.chat.id, "«Чтобы скачать любую другую игру, перейдите в канал и нажмите «Установить».»")
+        bot.send_message(call.message.chat.id, "Чтобы скачать любую другую игру, перейдите в канал и нажмите «Установить».")
         return
 
     game = {
